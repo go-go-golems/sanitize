@@ -176,6 +176,46 @@ func TestLint_Clean(t *testing.T) {
 	}
 }
 
+func TestLint_ParseErrorProducesStructuralIssue(t *testing.T) {
+	src := "foo: bar: baz\n"
+	issues := Lint(src)
+	found := false
+	for _, li := range issues {
+		if li.Rule == "structural_parse_error" {
+			found = true
+			if li.Source != "parse" {
+				t.Fatalf("expected parse source, got %+v", li)
+			}
+			if li.StartRow != 0 {
+				t.Fatalf("expected issue to start on row 0, got %+v", li)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected structural_parse_error lint issue")
+	}
+}
+
+func TestLint_HeuristicIssueCarriesSpan(t *testing.T) {
+	src := "name:Alice\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "missing_space_after_colon" {
+			if li.Source != "heuristic" {
+				t.Fatalf("expected heuristic source, got %+v", li)
+			}
+			if li.StartRow != 0 || li.EndRow != 0 {
+				t.Fatalf("expected line-local span, got %+v", li)
+			}
+			if li.EndByte == 0 {
+				t.Fatalf("expected non-zero end byte, got %+v", li)
+			}
+			return
+		}
+	}
+	t.Fatal("expected missing_space_after_colon lint issue")
+}
+
 // ── Fix tests ────────────────────────────────────────────────────────────
 
 func TestFix_TabIndent(t *testing.T) {

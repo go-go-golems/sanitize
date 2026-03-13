@@ -15,14 +15,6 @@ type duplicateKeyOccurrence struct {
 	DuplicateIndex int
 }
 
-func findDuplicateKeys(src string) []duplicateKeyOccurrence {
-	analysis, err := analyzeDocument(src)
-	if err != nil {
-		return nil
-	}
-	return analysis.DuplicateKeys
-}
-
 func collectDuplicateKeys(root *sitter.Node, content []byte) []duplicateKeyOccurrence {
 	var duplicates []duplicateKeyOccurrence
 	var visit func(*sitter.Node)

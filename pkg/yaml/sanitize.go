@@ -12,16 +12,27 @@ func Sanitize(src string, opts ...Option) Result {
 	var allFixes []Fix
 
 	// Capture original parse state before any fixes.
-	origTreeText, origErrors, _ := ParseTree(original)
-	origLintIssues := Lint(original)
+	origDoc, origErr := analyzeDocument(original)
+	origTreeText, origErrors := "", []ErrorNode(nil)
+	origLintIssues := []LintIssue(nil)
+	if origErr == nil {
+		origTreeText = origDoc.TreeText
+		origErrors = origDoc.ParseErrors
+		origLintIssues = lintIssuesFromAnalysis(original, origDoc)
+	} else {
+		origTreeText, origErrors, _ = ParseTree(original)
+		origLintIssues = Lint(original)
+	}
 
 	// Run up to maxIterations fix iterations.
 	for iter := 0; iter < cfg.maxIterations; iter++ {
-		treeText, errors, err := ParseTree(src)
+		doc, err := analyzeDocument(src)
 		if err != nil {
 			break
 		}
-		lintIssues := Lint(src)
+		treeText := doc.TreeText
+		errors := doc.ParseErrors
+		lintIssues := lintIssuesFromAnalysis(src, doc)
 
 		if len(errors) == 0 && len(lintIssues) == 0 {
 			return Result{
@@ -39,11 +50,19 @@ func Sanitize(src string, opts ...Option) Result {
 			}
 		}
 
-		fixed, fixes := applyFixes(src, errors, lintIssues, &cfg)
+		fixed, fixes := applyFixes(src, doc, lintIssues, &cfg)
 		if len(fixes) == 0 {
 			// No progress — stop.
-			treeText2, errors2, _ := ParseTree(src)
-			lintIssues2 := Lint(src)
+			doc2, err := analyzeDocument(src)
+			treeText2, errors2, lintIssues2 := "", []ErrorNode(nil), []LintIssue(nil)
+			if err == nil {
+				treeText2 = doc2.TreeText
+				errors2 = doc2.ParseErrors
+				lintIssues2 = lintIssuesFromAnalysis(src, doc2)
+			} else {
+				treeText2, errors2, _ = ParseTree(src)
+				lintIssues2 = Lint(src)
+			}
 			return Result{
 				Original:           original,
 				Sanitized:          src,
@@ -62,8 +81,16 @@ func Sanitize(src string, opts ...Option) Result {
 		src = fixed
 	}
 
-	treeText, errors, _ := ParseTree(src)
-	lintIssues := Lint(src)
+	doc, err := analyzeDocument(src)
+	treeText, errors, lintIssues := "", []ErrorNode(nil), []LintIssue(nil)
+	if err == nil {
+		treeText = doc.TreeText
+		errors = doc.ParseErrors
+		lintIssues = lintIssuesFromAnalysis(src, doc)
+	} else {
+		treeText, errors, _ = ParseTree(src)
+		lintIssues = Lint(src)
+	}
 	return Result{
 		Original:           original,
 		Sanitized:          src,

@@ -13,7 +13,7 @@ var (
 )
 
 // applyFixes applies one round of heuristic fixes to the source.
-func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *config) (string, []Fix) {
+func applyFixes(src string, doc documentAnalysis, lintIssues []LintIssue, cfg *config) (string, []Fix) {
 	var fixes []Fix
 	lines := strings.Split(src, "\n")
 
@@ -23,17 +23,19 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 		lintByRow[li.Row] = append(lintByRow[li.Row], li.Rule)
 	}
 
-	// Build error rows set.
-	errorRows := map[uint]bool{}
-	for _, e := range errors {
-		errorRows[e.StartRow] = true
+	// Build error rows set from full parse-error spans.
+	errorRows := map[int]bool{}
+	for _, e := range doc.ParseErrors {
+		for row := int(e.StartRow); row <= int(e.EndRow); row++ {
+			errorRows[row] = true
+		}
 	}
 
 	changed := false
 	for row := range lines {
 		line := lines[row]
 		rules := lintByRow[row]
-		hasTreeErr := errorRows[uint(row)]
+		hasTreeErr := errorRows[row]
 
 		newLine, f := fixLine(line, row, rules, hasTreeErr, cfg)
 		if newLine != line {
@@ -45,7 +47,7 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 
 	// Document-level fixes (duplicate keys).
 	if !changed {
-		newSrc, f := fixDuplicateKeys(strings.Join(lines, "\n"))
+		newSrc, f := fixDuplicateKeysOccurrences(strings.Join(lines, "\n"), doc.DuplicateKeys)
 		if newSrc != strings.Join(lines, "\n") {
 			return newSrc, f
 		}
@@ -53,7 +55,7 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 
 	// Document-level fix: mixed/inconsistent indentation depth.
 	// Only attempt when tree-sitter reported errors (structural breakage).
-	if !changed && len(errors) > 0 {
+	if !changed && len(doc.ParseErrors) > 0 {
 		newSrc, f := fixMixedIndentation(strings.Join(lines, "\n"))
 		if len(f) > 0 {
 			return newSrc, f
@@ -178,9 +180,7 @@ func fixExtraColonInValue(line string) string {
 	return m[1] + quoteValue(val)
 }
 
-// fixDuplicateKeys renames duplicate sibling keys by appending a numeric suffix.
-func fixDuplicateKeys(src string) (string, []Fix) {
-	duplicates := findDuplicateKeys(src)
+func fixDuplicateKeysOccurrences(src string, duplicates []duplicateKeyOccurrence) (string, []Fix) {
 	if len(duplicates) == 0 {
 		return src, nil
 	}
