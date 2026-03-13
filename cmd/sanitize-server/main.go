@@ -1,13 +1,18 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 
-	"yaml-sanitizer/sanitize"
+	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
+
+//go:embed static
+var staticFiles embed.FS
 
 func main() {
 	port := os.Getenv("PORT")
@@ -17,14 +22,18 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Serve static files from the "static" directory.
-	mux.Handle("/", http.FileServer(http.Dir("static")))
+	// Serve embedded static files.
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
 	// API: list examples.
 	mux.HandleFunc("/api/examples", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		json.NewEncoder(w).Encode(sanitize.Examples)
+		_ = json.NewEncoder(w).Encode(yamlsanitize.Examples)
 	})
 
 	// API: parse + sanitize.
@@ -52,8 +61,8 @@ func main() {
 			return
 		}
 
-		result := sanitize.Sanitize(req.YAML)
-		json.NewEncoder(w).Encode(result)
+		result := yamlsanitize.Sanitize(req.YAML)
+		_ = json.NewEncoder(w).Encode(result)
 	})
 
 	// API: parse only (tree + errors, no fixing).
@@ -74,13 +83,13 @@ func main() {
 			return
 		}
 
-		treeText, errors, err := sanitize.ParseTree(req.YAML)
+		treeText, errors, err := yamlsanitize.ParseTree(req.YAML)
 		if err != nil {
 			http.Error(w, "parse error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"tree_text": treeText,
 			"errors":    errors,
 		})

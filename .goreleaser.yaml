@@ -1,0 +1,111 @@
+version: 2
+project_name: sanitize
+
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: sanitize-linux
+    env:
+      - CGO_ENABLED=1
+      - CC_linux_amd64=gcc
+      - CXX_linux_amd64=g++
+      - CC_linux_arm64=aarch64-linux-gnu-gcc
+      - CXX_linux_arm64=aarch64-linux-gnu-g++
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
+    main: ./cmd/sanitize
+    binary: sanitize
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+  - id: sanitize-darwin
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/sanitize
+    binary: sanitize
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+  - id: sanitize-server-linux
+    env:
+      - CGO_ENABLED=1
+      - CC_linux_amd64=gcc
+      - CXX_linux_amd64=g++
+      - CC_linux_arm64=aarch64-linux-gnu-gcc
+      - CXX_linux_arm64=aarch64-linux-gnu-g++
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
+    main: ./cmd/sanitize-server
+    binary: sanitize-server
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+  - id: sanitize-server-darwin
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/sanitize-server
+    binary: sanitize-server
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+signs:
+  - artifacts: checksum
+    args: [ "--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}" ]
+
+brews:
+  - name: sanitize
+    description: "YAML sanitizer — lint and heuristically fix common YAML errors"
+    homepage: "https://github.com/go-go-golems/sanitize"
+    repository:
+      owner: go-go-golems
+      name: homebrew-go-go-go
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+nfpms:
+  -
+    id: packages
+    vendor: GO GO GOLEMS
+    homepage: https://github.com/go-go-golems/sanitize
+    maintainer: Manuel Odendahl <wesen@ruinwesen.com>
+    description: |-
+      YAML sanitizer — lint and heuristically fix common YAML errors using tree-sitter.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    release: 1
+    section: default
+    priority: extra
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
+publishers:
+  - name: fury.io
+    ids:
+      - packages
+    dir: "{{ dir .ArtifactPath }}"
+    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/go-go-golems/
+
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json

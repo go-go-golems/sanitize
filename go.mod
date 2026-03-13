@@ -1,4 +1,4 @@
-module yaml-sanitizer
+module github.com/go-go-golems/sanitize
 
 go 1.25.5
 

@@ -1,11 +1,4 @@
-package sanitize
-
-// Example is a named YAML snippet with a description of the error it contains.
-type Example struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	YAML        string `json:"yaml"`
-}
+package yamlsanitize
 
 // Examples is the built-in set of broken YAML snippets.
 var Examples = []Example{
