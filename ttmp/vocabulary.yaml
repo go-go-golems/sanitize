@@ -19,6 +19,8 @@ topics:
       description: Static and structural lint analysis work
     - slug: treesitter
       description: Tree-sitter parsing and syntax-tree analysis work
+    - slug: cli
+      description: Command-line interface and command-surface work
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

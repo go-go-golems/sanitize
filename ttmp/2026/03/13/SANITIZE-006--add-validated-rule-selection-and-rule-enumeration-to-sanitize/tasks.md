@@ -4,7 +4,7 @@
 
 - [x] Create `SANITIZE-006` and seed the ticket workspace.
 - [x] Write the implementation plan for validated rule selection, rule enumeration, and CLI support.
-- [ ] Relate the core YAML and CLI files to the ticket docs.
+- [x] Relate the core YAML and CLI files to the ticket docs.
 
 ## Phase 2: Canonical rule registry
 
@@ -23,15 +23,15 @@
 
 ## Phase 4: Glazed CLI integration
 
-- [ ] Add `--rule` and `--disable-rule` flags to `sanitize lint`.
-- [ ] Add `--rule` and `--disable-rule` flags to `sanitize fix`.
-- [ ] Validate CLI rule names before running lint or fix and return a clear non-zero error for unknown rules.
-- [ ] Add a `sanitize rules` command that lists the available rules in text and JSON forms.
-- [ ] Add CLI regression tests for valid rule selection, invalid rule names, and rule listing.
+- [x] Add `--rule` and `--disable-rule` flags to `sanitize lint`.
+- [x] Add `--rule` and `--disable-rule` flags to `sanitize fix`.
+- [x] Validate CLI rule names before running lint or fix and return a clear non-zero error for unknown rules.
+- [x] Add a `sanitize rules` command that lists the available rules in text and JSON forms.
+- [x] Add CLI regression tests for valid rule selection, invalid rule names, and rule listing.
 
 ## Phase 5: Docs and validation
 
-- [ ] Update the SANITIZE-006 diary after each code slice with commit hashes, commands, and failures.
-- [ ] Update the ticket changelog after each commit.
-- [ ] Run `go test ./pkg/yaml ./cmd/sanitize ./internal/...` after each implementation slice.
+- [x] Update the SANITIZE-006 diary after each code slice with commit hashes, commands, and failures.
+- [x] Update the ticket changelog after each commit.
+- [x] Run `go test ./pkg/yaml ./cmd/sanitize ./internal/...` after each implementation slice.
 - [ ] Run `docmgr doctor --ticket SANITIZE-006 --stale-after 30` before closing the turn.

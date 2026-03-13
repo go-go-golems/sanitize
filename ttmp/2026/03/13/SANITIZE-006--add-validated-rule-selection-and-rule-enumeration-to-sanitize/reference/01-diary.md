@@ -10,6 +10,12 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: cmd/sanitize/main_test.go
+      Note: CLI regression coverage for rule selection and listing
+    - Path: internal/cli/commands.go
+      Note: Glazed rule flags and sanitize rules command added in commit c7a6f53
+    - Path: internal/cli/root.go
+      Note: Registered sanitize rules command
     - Path: pkg/yaml/fix.go
       Note: Rule-aware fix scoping for duplicate and mixed-indent fixes
     - Path: pkg/yaml/lint.go
@@ -28,6 +34,7 @@ LastUpdated: 2026-03-13T10:20:39.54557411-04:00
 WhatFor: Record the implementation steps, commands, validation, and review guidance for validated rule selection and CLI rule enumeration.
 WhenToUse: Use when reviewing or continuing SANITIZE-006.
 ---
+
 
 
 # Diary
@@ -214,3 +221,95 @@ I kept this slice package-only on purpose. The CLI should consume rule metadata,
   - `pkg/yaml/lint.go`
   - `pkg/yaml/fix.go`
   - `pkg/yaml/sanitize.go`
+
+## Step 3: Expose rule selection and rule listing in the Glazed CLI
+
+With the package-level registry and validation in place, the CLI work became mostly plumbing. The important constraint was to keep the CLI thin: it should forward selected rule names into the validated package APIs and render the package-owned rule catalog, not define any rule tables of its own.
+
+This step added two user-facing behaviors. First, `sanitize lint` and `sanitize fix` can now accept repeated `--rule` and `--disable-rule` flags. Second, `sanitize rules` exposes the known rule catalog in both text and JSON forms.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Continue the ticket by wiring the validated rule-selection model into the Glazed CLI and adding a discoverable rule-listing command.
+
+**Inferred user intent:** Make the new rule-selection capability usable from the binary, not just from package code.
+
+**Commit (code):** `c7a6f53` - `feat(cli): add rule selection commands`
+
+### What I did
+
+- Extended `fixSettings` and `lintSettings` in `internal/cli/commands.go` with:
+  - `Rules []string`
+  - `DisableRules []string`
+- Added repeated Glazed `stringList` flags for:
+  - `--rule`
+  - `--disable-rule`
+- Switched the CLI to call:
+  - `yamlsanitize.LintWithOptions(...)`
+  - `yamlsanitize.SanitizeWithOptions(...)`
+- Added `buildRuleOptions(...)` in `internal/cli/commands.go` so the flag-to-option mapping is centralized.
+- Added a new `sanitize rules` command that renders `yamlsanitize.RuleCatalog()` in text and JSON forms.
+- Registered the new command in `internal/cli/root.go`.
+- Added CLI regression tests in `cmd/sanitize/main_test.go` covering:
+  - filtered lint output
+  - invalid rule-name failures
+  - disable-list behavior for `fix`
+  - JSON rule listing
+- Ran:
+  - `gofmt -w internal/cli/commands.go internal/cli/root.go cmd/sanitize/main_test.go`
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize rules --json`
+  - `printf 'server:\n\thost:localhost\n' | go run ./cmd/sanitize lint --json --rule missing_space_after_colon`
+
+### Why
+
+- The user explicitly wanted CLI rule selection and easier rule enumeration.
+- The rule catalog only becomes genuinely useful once it is visible from the binary.
+
+### What worked
+
+- `sanitize lint --rule missing_space_after_colon` now emits only that rule’s diagnostics.
+- Unknown rule names fail early with a regular CLI error instead of quietly doing the wrong thing.
+- `sanitize rules --json` prints the registry metadata exactly once, from the package source of truth.
+
+### What didn't work
+
+- My first expectation for `fix --disable-rule missing_space_after_colon` was wrong. I initially wrote the CLI regression test expecting a non-zero exit because a human-visible issue remained in the output, but under the selected-rule model that issue is disabled and therefore no longer active. I corrected the test to expect exit code `0` once I re-ran the full CLI/package suite and confirmed the intended behavior.
+
+### What I learned
+
+- Rule selection affects exit semantics as well as output. Once a rule is disabled, both lint cleanliness and fix cleanliness should be evaluated against the reduced active rule set.
+- Glazed’s repeated string-list flags map cleanly onto this use case; no custom Cobra flag handling was needed.
+
+### What was tricky to build
+
+- The subtle part was deciding how `fix` should behave when it intentionally leaves behind text that would have violated a disabled rule. The correct interpretation is that the command should still succeed if the remaining issues are outside the active rule set. That keeps CLI behavior consistent with the package-level filtering model.
+
+### What warrants a second pair of eyes
+
+- `internal/cli/commands.go` because it now owns both the `sanitize rules` command and the rule-selection option mapping.
+- `cmd/sanitize/main_test.go` because the exit-code expectations depend on the chosen semantics for disabled rules.
+
+### What should be done in the future
+
+- Add help-page documentation for the new `rules` command and rule-selection flags if the project starts publishing richer CLI docs.
+- Consider whether `parse` should eventually expose rule metadata or presets, though it does not need them today.
+
+### Code review instructions
+
+- Start with `internal/cli/commands.go`.
+- Then read `internal/cli/root.go`.
+- Then inspect the new tests in `cmd/sanitize/main_test.go`.
+- Validate with:
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize rules --json`
+  - `printf 'server:\n\thost:localhost\n' | go run ./cmd/sanitize lint --json --rule missing_space_after_colon`
+
+### Technical details
+
+- Updated files:
+  - `internal/cli/commands.go`
+  - `internal/cli/root.go`
+  - `cmd/sanitize/main_test.go`
