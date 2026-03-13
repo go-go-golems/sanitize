@@ -13,7 +13,7 @@ func TestRunLintTextReturnsNonZeroOnIssues(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	exitCode := run([]string{"--lint"}, strings.NewReader("name:Alice\n"), stdout, stderr)
+	exitCode := run([]string{"lint"}, strings.NewReader("name:Alice\n"), stdout, stderr)
 	if exitCode != 1 {
 		t.Fatalf("expected exit code 1, got %d", exitCode)
 	}
@@ -29,7 +29,7 @@ func TestRunLintJSONReturnsNonZeroOnIssues(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	exitCode := run([]string{"--lint", "--json"}, strings.NewReader("name:Alice\n"), stdout, stderr)
+	exitCode := run([]string{"lint", "--json"}, strings.NewReader("name:Alice\n"), stdout, stderr)
 	if exitCode != 1 {
 		t.Fatalf("expected exit code 1, got %d", exitCode)
 	}
@@ -50,7 +50,7 @@ func TestRunSanitizeJSONReturnsZeroAfterFix(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	exitCode := run([]string{"--json"}, strings.NewReader("name:Alice\n"), stdout, stderr)
+	exitCode := run([]string{"fix", "--json"}, strings.NewReader("name:Alice\n"), stdout, stderr)
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
@@ -74,7 +74,7 @@ func TestRunSanitizeJSONReturnsNonZeroWhenErrorsRemain(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	exitCode := run([]string{"--json"}, strings.NewReader("a: [1,2\n"), stdout, stderr)
+	exitCode := run([]string{"fix", "--json"}, strings.NewReader("a: [1,2\n"), stdout, stderr)
 	if exitCode != 1 {
 		t.Fatalf("expected exit code 1, got %d", exitCode)
 	}
@@ -88,5 +88,21 @@ func TestRunSanitizeJSONReturnsNonZeroWhenErrorsRemain(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunServeReturnsNonZeroOnInvalidPort(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"serve", "--port", "70000"}, strings.NewReader(""), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "invalid port") {
+		t.Fatalf("expected invalid port error, got %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
 	}
 }

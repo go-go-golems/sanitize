@@ -10,33 +10,32 @@ can be made).
 
 ```bash
 go install github.com/go-go-golems/sanitize/cmd/sanitize@latest
-go install github.com/go-go-golems/sanitize/cmd/sanitize-server@latest
 ```
 
 ## CLI usage
 
 ```bash
 # Fix a file (sanitized output on stdout, fix log on stderr)
-sanitize broken.yaml
+sanitize fix broken.yaml
 
 # Pipe from stdin
-cat broken.yaml | sanitize
+cat broken.yaml | sanitize fix
 
 # Lint only (no fixing) — exits 1 if issues found
-sanitize --lint broken.yaml
+sanitize lint broken.yaml
 
 # JSON output (full Result struct)
-sanitize --json broken.yaml
+sanitize fix --json broken.yaml
 
 # Custom tab width (default 2)
-sanitize --tab-width 4 broken.yaml
+sanitize fix --tab-width 4 broken.yaml
 ```
 
 ## Web UI
 
 ```bash
-sanitize-server          # http://localhost:8080
-PORT=3000 sanitize-server # http://localhost:3000
+sanitize serve            # http://localhost:8080
+sanitize serve --port 3000 # http://localhost:3000
 ```
 
 The server bundles a single-page web UI for interactive YAML editing, parse-tree

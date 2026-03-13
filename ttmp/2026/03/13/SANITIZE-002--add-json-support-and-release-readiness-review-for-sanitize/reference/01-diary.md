@@ -11,10 +11,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: cmd/sanitize-server/main.go
-      Note: Investigation evidence for gosec findings
+    - Path: internal/server/server.go
+      Note: Hardened HTTP server implementation and `serve` subcommand target
     - Path: cmd/sanitize/main.go
-      Note: Investigation evidence for CLI exit-code behavior
+      Note: CLI entrypoint delegating into the Glazed command tree
+    - Path: internal/cli/root.go
+      Note: Glazed/Cobra root command wiring and exit-code handling
+    - Path: internal/cli/commands.go
+      Note: Glazed-backed `fix`, `lint`, and `serve` command implementations
     - Path: pkg/yaml/fix.go
       Note: Investigation evidence for duplicate-key behavior
     - Path: pkg/yaml/lint.go
@@ -35,7 +39,7 @@ Capture the investigation, validation, and documentation work for `SANITIZE-002`
 
 ## Context
 
-This diary documents research and analysis work only. No production code was modified as part of this ticket. The deliverables are ticket documents, evidence-backed findings, and reMarkable delivery artifacts.
+This diary started as research and analysis work, then expanded into the implementation steps needed to clear the release-readiness findings. It now records both the original evidence-gathering work and the production code changes made to bring the project closer to a public release.
 
 ## Step 1: Create The Ticket And Gather Evidence
 
@@ -455,3 +459,94 @@ This step tightened the server in-place before the larger CLI migration. That se
   - `pkg/yaml/lint.go`
   - `pkg/yaml/fix.go`
   - `pkg/yaml/parse.go`
+
+## Step 6: Replace The CLI With Glazed And Fold The Server Into `serve`
+
+The fourth implementation step removed the last obviously pre-release part of the user-facing surface: the project had two binaries with divergent command plumbing, one hand-rolled CLI, and one server-only entrypoint. The new shape is a single `sanitize` binary with Glazed/Cobra-backed `fix`, `lint`, and `serve` subcommands, with the HTTP server moved into a shared internal package instead of living behind a second install target.
+
+This is a breaking CLI change, but that is consistent with the earlier decision that the repository has no external users yet. For a first public release, the cleaner outcome is more important than preserving a transient pre-release interface.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Use glazed to implement the CLI (see `glaze help build-first-command` and the skill), and make sanitize-server a `serve` subverb."
+
+**Assistant interpretation:** Rebuild the command-line entrypoint around Glazed/Cobra, preserve the existing YAML fix/lint behavior under explicit subcommands, and make the web server reachable as `sanitize serve` instead of as a separate binary.
+
+**Inferred user intent:** Ship a cleaner public CLI surface with one install target, a more maintainable command tree, and a server implementation that no longer sits outside the main product entrypoint.
+
+**Commit (code):** `pending at time of writing this entry`
+
+### What I did
+- Added `internal/cli/root.go` to own the Glazed/Cobra root command, logging initialization, and controlled exit-code mapping.
+- Added `internal/cli/commands.go` with Glazed command descriptions and `Run(...)` implementations for:
+  - `sanitize fix`
+  - `sanitize lint`
+  - `sanitize serve`
+- Kept file/stdin behavior intact by moving input loading into a shared helper used by the new command implementations.
+- Moved the hardened HTTP server from `cmd/sanitize-server` into `internal/server/server.go`.
+- Moved the web UI assets into `internal/server/static/` so they remain embedded while no longer requiring a second binary.
+- Updated `cmd/sanitize/main.go` to delegate to the new Glazed command tree.
+- Updated `cmd/sanitize/main_test.go` to assert the new subcommand-based interface and added coverage for invalid `serve --port`.
+- Updated `README.md` so installation and usage examples now describe the single-binary CLI.
+- Updated `.goreleaser.yaml` to stop producing `sanitize-server` artifacts and ship only the `sanitize` binary.
+- Ran:
+  - `gofmt -w cmd/sanitize/main.go cmd/sanitize/main_test.go internal/cli/root.go internal/cli/commands.go internal/server/server.go internal/server/server_test.go`
+  - `go mod tidy`
+  - `GOROOT=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64 PATH=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64/bin:$PATH GOTOOLCHAIN=local GOSUMDB=off GOPROXY=file:///home/manuel/go/pkg/mod/cache/download GOMODCACHE=/tmp/go-mod GOCACHE=/tmp/go-build GOWORK=off go test ./cmd/sanitize ./internal/... ./pkg/yaml`
+  - `GOROOT=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64 PATH=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64/bin:$PATH GOTOOLCHAIN=local GOSUMDB=off GOPROXY=file:///home/manuel/go/pkg/mod/cache/download GOMODCACHE=/tmp/go-mod GOCACHE=/tmp/go-build GOWORK=off go build ./cmd/sanitize`
+  - `GOROOT=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64 PATH=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64/bin:$PATH GOTOOLCHAIN=local GOCACHE=/tmp/go-build GOWORK=off /home/manuel/go/bin/gosec -exclude-generated -exclude=G101,G304,G301,G306 ./cmd/sanitize ./internal/... ./pkg/...`
+  - `GOROOT=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64 PATH=/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.7.linux-amd64/bin:$PATH GOTOOLCHAIN=local GOSUMDB=off GOPROXY=file:///home/manuel/go/pkg/mod/cache/download GOMODCACHE=/tmp/go-mod GOCACHE=/tmp/go-build GOWORK=off golangci-lint run -v ./cmd/sanitize ./internal/... ./pkg/yaml`
+
+### Why
+- A public CLI should not require users to discover and install a second binary just to reach the web UI.
+- Glazed gives the command tree a real schema-driven structure instead of continuing to grow an ad hoc `flag`-based entrypoint.
+- Moving the server into a shared package removes duplicated entrypoint responsibility and makes future subcommands or API tests easier to add.
+
+### What worked
+- The new `sanitize fix` and `sanitize lint` commands preserve the previous YAML behavior while making the verb structure explicit.
+- The `sanitize serve` command now reuses the same hardened server implementation and tests from the earlier hardening step.
+- The custom Glazed-backed Cobra adapter preserves Glazed flag/argument schemas without inheriting the hard process exits from `cobra.CheckErr`.
+- The targeted test, lint, build, and `gosec` runs all passed after the migration.
+
+### What didn't work
+- The stock `cli.BuildCobraCommandFromCommand` path in Glazed calls `cobra.CheckErr`, which exits the process directly. That made the new `run(...)` wrapper untestable until the command builder layer was replaced with a custom adapter that still uses Glazed parsing.
+- The sandbox environment blocked writes to the shared Go and golangci-lint caches, so validation had to run against a cached Go `1.25.7` toolchain with temp caches and a local file-backed module proxy.
+
+### What I learned
+- Glazed’s command-description and parser layers are useful independently of its default Cobra run helper. Using the schemas but taking control of execution gave the right balance here.
+- Converging on one binary simplified more than the install story; it also forced the server package boundaries to become more honest.
+
+### What was tricky to build
+- The hardest part was not the command descriptions themselves. The real edge was exit handling: the release ticket already depended on testable exit codes, so the Glazed migration had to preserve that contract rather than falling back to library-managed process exits.
+
+### What warrants a second pair of eyes
+- The choice of `fix`, `lint`, and `serve` as the public verb set should be reviewed once there is a broader roadmap for future JSON or parse-tree subcommands.
+- The dependency expansion from adding Glazed is justified by the new CLI shape, but it increases the transitive module surface and should be kept in mind for long-term maintenance.
+
+### What should be done in the future
+- If the project gains more documentation, wire a Glazed help system on top of the current root command so examples and tutorials can live beside the CLI.
+- When JSON support lands in `SANITIZE-003`, add sibling JSON verbs or format-aware subcommands to the same command tree instead of introducing a second entrypoint pattern.
+
+### Code review instructions
+- Start with `internal/cli/root.go`, then `internal/cli/commands.go`.
+- Then review `internal/server/server.go` to see how the `serve` command now reuses the hardened server implementation.
+- Finally check `README.md` and `.goreleaser.yaml` to confirm the public surface is now single-binary.
+- Validate with:
+  - `go test ./cmd/sanitize`
+  - `go test ./internal/server ./pkg/yaml`
+  - `go build ./cmd/sanitize`
+  - `gosec -exclude-generated -exclude=G101,G304,G301,G306 ./cmd/sanitize ./internal/... ./pkg/...`
+
+### Technical details
+- Files changed:
+  - `cmd/sanitize/main.go`
+  - `cmd/sanitize/main_test.go`
+  - `internal/cli/root.go`
+  - `internal/cli/commands.go`
+  - `internal/server/server.go`
+  - `internal/server/server_test.go`
+  - `internal/server/static/index.html`
+  - `README.md`
+  - `.goreleaser.yaml`
+  - `go.mod`
+  - `go.sum`

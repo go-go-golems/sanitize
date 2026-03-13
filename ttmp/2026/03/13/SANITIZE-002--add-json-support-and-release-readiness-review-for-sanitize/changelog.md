@@ -58,3 +58,9 @@ Completed JSON support design analysis, public release review, and intern onboar
 - Hardened `sanitize-server` with explicit `http.Server` timeouts and bounded JSON request decoding
 - Added HTTP handler tests for sanitize and parse endpoints
 - Cleared the remaining `gosec` findings, including the parse offset conversion warning
+
+## 2026-03-13
+
+- Replaced the hand-rolled CLI with a Glazed/Cobra command tree using `fix`, `lint`, and `serve`
+- Folded the standalone `sanitize-server` binary into `sanitize serve`
+- Moved the HTTP server into `internal/server`, updated README usage, and removed `sanitize-server` Goreleaser artifacts

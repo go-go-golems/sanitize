@@ -31,32 +31,6 @@ builds:
     goarch:
       - amd64
       - arm64
-  - id: sanitize-server-linux
-    env:
-      - CGO_ENABLED=1
-      - CC_linux_amd64=gcc
-      - CXX_linux_amd64=g++
-      - CC_linux_arm64=aarch64-linux-gnu-gcc
-      - CXX_linux_arm64=aarch64-linux-gnu-g++
-      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
-      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
-    main: ./cmd/sanitize-server
-    binary: sanitize-server
-    goos:
-      - linux
-    goarch:
-      - amd64
-      - arm64
-  - id: sanitize-server-darwin
-    env:
-      - CGO_ENABLED=1
-    main: ./cmd/sanitize-server
-    binary: sanitize-server
-    goos:
-      - darwin
-    goarch:
-      - amd64
-      - arm64
 checksum:
   name_template: 'checksums.txt'
 snapshot:

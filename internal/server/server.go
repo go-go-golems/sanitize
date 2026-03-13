@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"embed"
@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 var staticFiles embed.FS
 
 const (
+	DefaultPort         = 8080
 	maxRequestBodyBytes = 1 << 20
 	readHeaderTimeout   = 5 * time.Second
 	readTimeout         = 10 * time.Second
@@ -30,24 +30,24 @@ type yamlRequest struct {
 	YAML string `json:"yaml"`
 }
 
-func main() {
-	port, err := serverPort(os.Getenv("PORT"))
+func Run(port int) error {
+	srv, err := New(port)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	srv, err := newServer(port)
-	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Print("Listening")
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
-func newServer(port int) (*http.Server, error) {
+func New(port int) (*http.Server, error) {
+	if err := validatePort(port); err != nil {
+		return nil, err
+	}
+
 	mux := http.NewServeMux()
 
 	// Serve embedded static files.
@@ -158,17 +158,9 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) err
 	return nil
 }
 
-func serverPort(raw string) (int, error) {
-	if raw == "" {
-		raw = "8080"
-	}
-
-	port, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("invalid PORT %q: %w", raw, err)
-	}
+func validatePort(port int) error {
 	if port < 1 || port > 65535 {
-		return 0, fmt.Errorf("invalid PORT %q: out of range", raw)
+		return fmt.Errorf("invalid port %d: out of range", port)
 	}
-	return port, nil
+	return nil
 }
