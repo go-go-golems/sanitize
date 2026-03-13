@@ -10,7 +10,6 @@ import (
 type duplicateKeyOccurrence struct {
 	Key            string
 	KeyText        string
-	Line           int
 	StartByte      uint
 	EndByte        uint
 	DuplicateIndex int
@@ -80,7 +79,6 @@ func collectMappingDuplicates(node *sitter.Node, src []byte) []duplicateKeyOccur
 			duplicates = append(duplicates, duplicateKeyOccurrence{
 				Key:            key,
 				KeyText:        keyText,
-				Line:           int(keyNode.StartPosition().Row),
 				StartByte:      keyNode.StartByte(),
 				EndByte:        keyNode.EndByte(),
 				DuplicateIndex: seen[key],
@@ -131,4 +129,14 @@ func nodeText(src []byte, node *sitter.Node) string {
 		return ""
 	}
 	return string(src[startByte:endByte])
+}
+
+func lineIndexAtByte(src string, byteOffset uint) int {
+	line := 0
+	for i := 0; i < len(src) && uint(i) < byteOffset; i++ {
+		if src[i] == '\n' {
+			line++
+		}
+	}
+	return line
 }

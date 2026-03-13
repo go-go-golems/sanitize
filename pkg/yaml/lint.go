@@ -91,10 +91,11 @@ func Lint(src string) []LintIssue {
 	}
 
 	for _, duplicate := range findDuplicateKeys(src) {
+		line := lineIndexAtByte(src, duplicate.StartByte)
 		issues = append(issues, LintIssue{
 			Rule:        "duplicate_key",
-			Description: fmt.Sprintf("Line %d: duplicate key '%s'", duplicate.Line+1, duplicate.Key),
-			Row:         duplicate.Line,
+			Description: fmt.Sprintf("Line %d: duplicate key '%s'", line+1, duplicate.Key),
+			Row:         line,
 		})
 	}
 

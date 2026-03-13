@@ -323,7 +323,7 @@ I refactored the command into a reusable `run(...)` function so the tests could 
 
 **Inferred user intent:** Make the public CLI predictable for automation, not just for interactive use.
 
-**Commit (code):** pending at time of writing this entry
+**Commit (code):** `6991e6b` — `fix(cli): honor exit codes in json modes`
 
 ### What I did
 - Refactored `cmd/sanitize/main.go` so `main()` delegates to `run(args, stdin, stdout, stderr)`.
@@ -378,3 +378,80 @@ I refactored the command into a reusable `run(...)` function so the tests could 
 - Files changed:
   - `cmd/sanitize/main.go`
   - `cmd/sanitize/main_test.go`
+
+## Step 5: Harden The HTTP Server And Clear The Remaining Gosec Findings
+
+The third implementation step closed the remaining release-hardening findings from the initial review. The HTTP server had been relying on `http.ListenAndServe` without timeouts, request bodies were effectively unbounded, and `gosec` was still flagging an unsafe integer conversion in YAML parse error collection. None of those are deep architectural problems, but together they are the kind of sharp edges that make a small tool look unfinished in a public release.
+
+This step tightened the server in-place before the larger CLI migration. That sequencing kept the validation surface narrow: first make the existing HTTP behavior defensible, then move the entrypoint wiring later without mixing security posture changes and command-tree changes in one commit.
+
+### Prompt Context
+
+**User prompt (verbatim):** "work on SANITIZE-002 for making this release worthy. Task by task, commit as you go, keep a detailed diary"
+
+**Assistant interpretation:** Continue with the next release-readiness findings from the ticket review, commit them as an isolated task, and document both the remediation and the proof that the security scan is now clean.
+
+**Inferred user intent:** Eliminate the remaining concrete release blockers before moving into design-driven refactors like the Glazed CLI migration.
+
+**Commit (code):** `pending at time of writing this entry`
+
+### What I did
+- Reworked `cmd/sanitize-server/main.go` so startup builds an explicit `http.Server` instead of calling `http.ListenAndServe` directly.
+- Added read header, read, write, and idle timeouts to the server configuration.
+- Added `serverPort(...)` validation so `PORT` values are parsed and range-checked explicitly.
+- Centralized request decoding through `decodeJSONBody(...)`, using `http.MaxBytesReader` and `json.Decoder.DisallowUnknownFields()`.
+- Added `cmd/sanitize-server/main_test.go` with handler coverage for:
+  - successful sanitize requests
+  - oversized request rejection
+  - parse endpoint method handling
+  - successful parse requests
+- Reworked duplicate-key line reporting to compute line numbers from byte offsets without the `uint -> int` conversion that `gosec` flagged.
+- Tightened `pkg/yaml/parse.go` to compare byte offsets without converting `uint` to `int`.
+- Ran:
+  - `gofmt -w cmd/sanitize-server/main.go cmd/sanitize-server/main_test.go pkg/yaml/duplicate_keys.go pkg/yaml/fix.go pkg/yaml/lint.go pkg/yaml/parse.go`
+  - `go test ./...`
+  - `make gosec`
+
+### Why
+- Public-facing HTTP servers should not ship with zero timeout protection.
+- Request-size bounds and strict JSON decoding reduce the chance of accidental abuse or confusing handler behavior.
+- A clean `gosec` run was one of the explicit unfinished findings from the release review.
+
+### What worked
+- The explicit `http.Server` configuration resolved the timeout-related finding cleanly.
+- The request decoder abstraction made it easy to add both size bounds and unknown-field rejection in one place.
+- The new handler tests passed without needing end-to-end browser fixtures.
+- `make gosec` now reports `Issues : 0`.
+
+### What didn't work
+- `gosec` initially still flagged the startup log line when it included the parsed port value, so the startup message had to stay static to keep the scan clean.
+
+### What I learned
+- Even in a small repo, lightweight security tooling pushes the code toward better seams: request decoding became clearer once it had to own bounds and validation centrally.
+- The duplicate-key refactor still had one release-quality loose end in how it computed line numbers; fixing the scanner findings forced that code to become a little more robust too.
+
+### What was tricky to build
+- The subtlest part was preserving the existing API behavior while hardening it. The handlers still need to feel simple from the frontend’s point of view, even though body bounding, stricter decoding, and timeout management now happen under the hood.
+
+### What warrants a second pair of eyes
+- The `maxRequestBodyBytes` limit is reasonable for the current UI, but it should still be reviewed if the server is expected to accept very large YAML documents later.
+
+### What should be done in the future
+- When the standalone server binary is folded into the main CLI, preserve these server tests and the request-decoding helpers rather than reintroducing looser behavior.
+
+### Code review instructions
+- Start with `cmd/sanitize-server/main.go`.
+- Then review `cmd/sanitize-server/main_test.go`.
+- Finally check the scanner-driven cleanup in `pkg/yaml/duplicate_keys.go`, `pkg/yaml/lint.go`, `pkg/yaml/fix.go`, and `pkg/yaml/parse.go`.
+- Validate with:
+  - `go test ./...`
+  - `make gosec`
+
+### Technical details
+- Files changed:
+  - `cmd/sanitize-server/main.go`
+  - `cmd/sanitize-server/main_test.go`
+  - `pkg/yaml/duplicate_keys.go`
+  - `pkg/yaml/lint.go`
+  - `pkg/yaml/fix.go`
+  - `pkg/yaml/parse.go`

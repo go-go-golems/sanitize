@@ -197,13 +197,14 @@ func fixDuplicateKeys(src string) (string, []Fix) {
 		newKeyText := duplicateKeyReplacement(duplicate.KeyText, duplicate.DuplicateIndex)
 		src = src[:duplicate.StartByte] + newKeyText + src[duplicate.EndByte:]
 
-		if duplicate.Line >= 0 && duplicate.Line < len(lines) {
-			before := lines[duplicate.Line]
+		line := lineIndexAtByte(src, duplicate.StartByte)
+		if line >= 0 && line < len(lines) {
+			before := lines[line]
 			after := strings.Replace(before, duplicate.KeyText, newKeyText, 1)
-			lines[duplicate.Line] = after
+			lines[line] = after
 			fixes = append([]Fix{{
 				Rule:        "duplicate_key",
-				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", duplicate.Line+1, duplicate.Key, duplicateKeyIdentity(newKeyText)),
+				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", line+1, duplicate.Key, duplicateKeyIdentity(newKeyText)),
 				Before:      before,
 				After:       after,
 			}}, fixes...)

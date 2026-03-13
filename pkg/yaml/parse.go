@@ -53,7 +53,7 @@ func collectErrors(node *sitter.Node, src []byte) []ErrorNode {
 			text := ""
 			sb := n.StartByte()
 			eb := n.EndByte()
-			if sb < eb && int(eb) <= len(src) {
+			if sb < eb && eb <= uint(len(src)) {
 				text = string(src[sb:eb])
 			}
 			errs = append(errs, ErrorNode{

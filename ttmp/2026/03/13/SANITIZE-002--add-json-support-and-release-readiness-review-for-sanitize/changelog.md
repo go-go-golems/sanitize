@@ -52,3 +52,9 @@ Completed JSON support design analysis, public release review, and intern onboar
 - Refactored `cmd/sanitize` into a testable `run(...)` path so CLI exit codes can be asserted directly
 - Fixed non-zero exit behavior for dirty JSON-output runs in both lint and sanitize modes
 - Added command tests covering text output, JSON output, and unresolved parse errors
+
+## 2026-03-13
+
+- Hardened `sanitize-server` with explicit `http.Server` timeouts and bounded JSON request decoding
+- Added HTTP handler tests for sanitize and parse endpoints
+- Cleared the remaining `gosec` findings, including the parse offset conversion warning
