@@ -216,6 +216,33 @@ func TestLint_HeuristicIssueCarriesSpan(t *testing.T) {
 	t.Fatal("expected missing_space_after_colon lint issue")
 }
 
+func TestLint_MixedIndentProducesDedicatedIssue(t *testing.T) {
+	src := "root:\n  child_a: 1\n   child_b: 2\n  child_c: 3\n"
+	issues := Lint(src)
+	foundMixed := false
+	foundStructural := false
+	for _, li := range issues {
+		if li.Rule == "mixed_indent" {
+			foundMixed = true
+			if li.Source != "heuristic" {
+				t.Fatalf("expected heuristic source, got %+v", li)
+			}
+			if li.Row != 2 {
+				t.Fatalf("expected offending row 2, got %+v", li)
+			}
+		}
+		if li.Rule == "structural_parse_error" {
+			foundStructural = true
+		}
+	}
+	if !foundMixed {
+		t.Fatal("expected mixed_indent lint issue")
+	}
+	if !foundStructural {
+		t.Fatal("expected structural_parse_error alongside mixed_indent")
+	}
+}
+
 // ── Fix tests ────────────────────────────────────────────────────────────
 
 func TestFix_TabIndent(t *testing.T) {

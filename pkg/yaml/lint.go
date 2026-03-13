@@ -27,6 +27,7 @@ func Lint(src string) []LintIssue {
 func lintIssuesFromAnalysis(src string, doc documentAnalysis) []LintIssue {
 	issues := lintFromParseErrors(doc.ParseErrors)
 	issues = append(issues, lintLineIssues(src, doc.LineIndex, doc.DuplicateKeys)...)
+	issues = append(issues, lintMixedIndentation(src, doc)...)
 	return issues
 }
 
@@ -191,4 +192,43 @@ func newLineLintIssue(rule, description string, row int, startByte, endByte uint
 		EndCol:      endByte - startByte,
 		Row:         row,
 	}
+}
+
+func lintMixedIndentation(src string, doc documentAnalysis) []LintIssue {
+	if len(doc.ParseErrors) == 0 {
+		return nil
+	}
+
+	lines := strings.Split(src, "\n")
+	unit, offenders := detectMixedIndentationRows(lines)
+	if len(offenders) == 0 {
+		return nil
+	}
+
+	issues := make([]LintIssue, 0, len(offenders))
+	lineOffset := 0
+	for i, line := range lines {
+		startByte := uint(lineOffset)
+		endByte := uint(lineOffset + len(line))
+
+		for _, offender := range offenders {
+			if offender == i {
+				issues = append(issues, newLineLintIssue(
+					"mixed_indent",
+					fmt.Sprintf("Line %d: indentation is not a multiple of the dominant %d-space unit", i+1, unit),
+					i,
+					startByte,
+					endByte,
+				))
+				break
+			}
+		}
+
+		lineOffset += len(line)
+		if i < len(lines)-1 {
+			lineOffset++
+		}
+	}
+
+	return issues
 }

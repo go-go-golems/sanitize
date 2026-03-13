@@ -50,7 +50,7 @@ func Sanitize(src string, opts ...Option) Result {
 			}
 		}
 
-		fixed, fixes := applyFixes(src, doc, lintIssues, &cfg)
+		fixed, fixes := applyFixes(src, doc, &cfg)
 		if len(fixes) == 0 {
 			// No progress — stop.
 			doc2, err := analyzeDocument(src)
