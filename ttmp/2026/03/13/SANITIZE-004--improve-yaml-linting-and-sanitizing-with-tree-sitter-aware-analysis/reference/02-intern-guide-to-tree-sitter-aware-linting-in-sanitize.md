@@ -14,8 +14,12 @@ RelatedFiles:
       Note: High-level user-facing entry point for the intern guide
     - Path: internal/cli/commands.go
       Note: CLI surfaces explained in the guide
+    - Path: pkg/yaml/analysis.go
+      Note: New shared analysis entrypoint the guide now references
     - Path: pkg/yaml/fix.go
       Note: Fix pipeline described in the guide
+    - Path: pkg/yaml/line_index.go
+      Note: Location helper now part of the implementation story
     - Path: pkg/yaml/lint.go
       Note: Current linter behavior the guide explains
     - Path: pkg/yaml/parse.go
@@ -30,6 +34,7 @@ LastUpdated: 2026-03-13T08:58:45.541255348-04:00
 WhatFor: Teach a new engineer how the sanitize system works today and how to implement the proposed tree-sitter-aware linting refactor.
 WhenToUse: Use before changing pkg/yaml, the CLI parse/lint/fix commands, or tree-sitter-backed diagnostic behavior.
 ---
+
 
 
 # Intern guide to tree-sitter-aware linting in sanitize

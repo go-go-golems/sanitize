@@ -16,6 +16,16 @@ RelatedFiles:
       Note: Added sanitize parse command in commit 63a3d07
     - Path: internal/cli/root.go
       Note: Registered parse command in the Glazed root
+    - Path: pkg/yaml/analysis.go
+      Note: Added in commit 1ceb01c
+    - Path: pkg/yaml/fix.go
+      Note: Span-aware parse coverage and shared-analysis usage in commit 273d0ef
+    - Path: pkg/yaml/line_index.go
+      Note: Added in commit 1ceb01c
+    - Path: pkg/yaml/sanitize.go
+      Note: One-analysis-per-iteration orchestration in commit 273d0ef
+    - Path: pkg/yaml/types.go
+      Note: Expanded lint issue model in commit 273d0ef
     - Path: ttmp/2026/03/13/SANITIZE-004--improve-yaml-linting-and-sanitizing-with-tree-sitter-aware-analysis/scripts/parse_lint_matrix.go
       Note: Experiment script written during this ticket
     - Path: ttmp/2026/03/13/SANITIZE-004--improve-yaml-linting-and-sanitizing-with-tree-sitter-aware-analysis/sources/01-example-corpus-parse-vs-lint-matrix.md
@@ -26,6 +36,7 @@ LastUpdated: 2026-03-13T08:52:51.121920062-04:00
 WhatFor: Record the concrete steps, commands, decisions, and review guidance for SANITIZE-004.
 WhenToUse: Use when reviewing or continuing the tree-sitter-aware linting investigation.
 ---
+
 
 
 # Diary
@@ -278,3 +289,177 @@ The first upload attempt failed because the raw matrix document was not PDF-frie
 
 - Delivery target: `/ai/2026/03/13/SANITIZE-004`
 - Uploaded document name: `SANITIZE-004 tree-sitter linting analysis`
+
+## Step 4: Implement the shared analysis core
+
+After the research phase, I started with the safest internal refactor: centralize parser-derived facts without changing the external lint and fix semantics yet. That meant adding one internal analysis path, moving duplicate-key collection onto it, and introducing a reusable line index for byte-to-line translation.
+
+This step was intentionally scoped to Phase 1 of the ticket. I did not touch the public lint issue model yet because the first priority was removing duplicated parser work and creating one place where future tree-sitter-aware behavior could live.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add tasks to SANITIZE-004 and implement pthem task by task, commit at appropriate intervals and keep a diary"
+
+**Assistant interpretation:** Turn the design ticket into active implementation work, commit focused slices, and keep the ticket docs synchronized with the code.
+
+**Inferred user intent:** Make steady, reviewable progress rather than dropping one large unstructured refactor.
+
+**Commit (code):** `1ceb01c` - `refactor(yaml): add shared document analysis`
+
+### What I did
+
+- Added `pkg/yaml/analysis.go` with `documentAnalysis` and `analyzeDocument(src string)`.
+- Added `pkg/yaml/line_index.go` with a reusable line index and byte-to-row and column helpers.
+- Changed `ParseTree` to delegate to `analyzeDocument`.
+- Moved duplicate-key collection into the shared analysis path.
+- Updated `Lint` to consume duplicate keys from the shared analysis path instead of forcing another parse.
+- Added `TestLineIndexAtByte` in `pkg/yaml/sanitize_test.go`.
+- Ran:
+  - `gofmt -w pkg/yaml/analysis.go pkg/yaml/line_index.go pkg/yaml/parse.go pkg/yaml/duplicate_keys.go pkg/yaml/lint.go pkg/yaml/sanitize_test.go`
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize parse --json examples/yaml/17-duplicate-key-sibling.yaml`
+
+### Why
+
+- The design doc identified shared analysis as the first prerequisite for every later task.
+- Duplicate-key detection was already tree-based, so moving it onto the shared parse path was a low-risk way to reduce duplicated parsing immediately.
+
+### What worked
+
+- The refactor stayed behavior-preserving for existing lint and sanitize behavior.
+- The new line index gives the package a reusable location primitive instead of a repeated linear scan helper.
+- Tests stayed green without having to rewrite the public API first.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- The shared-analysis step was smaller than it looked because the package already had most of the raw tree-sitter walking logic; the missing piece was central orchestration.
+
+### What was tricky to build
+
+- The main sharp edge was keeping the refactor plain-data-only. It would have been easy to start passing raw tree nodes around, but that would have created lifetime and testability problems immediately.
+
+### What warrants a second pair of eyes
+
+- `pkg/yaml/analysis.go` because it becomes the new internal hub for later work.
+- `pkg/yaml/line_index.go` because future span-based diagnostics will depend on it.
+
+### What should be done in the future
+
+- Layer the richer lint issue model on top of the new analysis path.
+- Use the shared analysis inside the sanitize loop itself so each iteration only parses once.
+
+### Code review instructions
+
+- Start with `pkg/yaml/analysis.go`.
+- Then read `pkg/yaml/parse.go`, `pkg/yaml/duplicate_keys.go`, and `pkg/yaml/lint.go`.
+- Validate with:
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize parse --json examples/yaml/17-duplicate-key-sibling.yaml`
+
+### Technical details
+
+- New files:
+  - `pkg/yaml/analysis.go`
+  - `pkg/yaml/line_index.go`
+- Updated files:
+  - `pkg/yaml/parse.go`
+  - `pkg/yaml/duplicate_keys.go`
+  - `pkg/yaml/lint.go`
+  - `pkg/yaml/sanitize_test.go`
+
+## Step 5: Add structural lint diagnostics and reuse analysis during sanitize
+
+Once the shared analysis path existed, I used it to make the public diagnostics more tree-sitter-aware. This step expanded `LintIssue`, added parser-derived issues for parse-only failures, and changed the sanitize loop so each iteration reuses one structural analysis instead of calling parse and lint independently.
+
+I also tightened fix targeting by expanding parse-error coverage from a single start row to every row touched by the parse-error span. That is the first actual fix behavior change driven by tree-sitter location data in this ticket.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Keep implementing SANITIZE-004 in focused slices with real commits and ticket bookkeeping.
+
+**Inferred user intent:** Land the first meaningful user-visible improvements from the design, not just scaffolding.
+
+**Commit (code):** `273d0ef` - `feat(yaml): add structural lint diagnostics`
+
+### What I did
+
+- Expanded `LintIssue` in `pkg/yaml/types.go` with source and span fields while keeping `Row` as a compatibility alias.
+- Added parser-derived lint issues in `pkg/yaml/lint.go` with rules `structural_parse_error` and `missing_syntax_node`.
+- Added heuristic issue span population for line-based rules and duplicate-key rules.
+- Added `lintIssuesFromAnalysis(...)` so `Lint` and `Sanitize` can share the same diagnostic assembly logic.
+- Changed `applyFixes` to consume `documentAnalysis` for parse-error spans and duplicate-key occurrences.
+- Changed sanitize orchestration so each iteration uses one `analyzeDocument` result rather than independent parse and lint calls.
+- Removed now-dead duplicate-key wrapper functions once the analysis path fully owned that work.
+- Added tests:
+  - `TestLint_ParseErrorProducesStructuralIssue`
+  - `TestLint_HeuristicIssueCarriesSpan`
+- Ran:
+  - `gofmt -w pkg/yaml/types.go pkg/yaml/lint.go pkg/yaml/fix.go pkg/yaml/sanitize.go pkg/yaml/duplicate_keys.go pkg/yaml/sanitize_test.go`
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize lint --json examples/yaml/20-mixed-indent.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/20-mixed-indent.yaml`
+
+### Why
+
+- Parse-only failures were still invisible to `Lint`, which contradicted the design goals of the ticket.
+- The sanitize loop was still reparsing more than necessary even after the first refactor.
+
+### What worked
+
+- `sanitize lint --json examples/yaml/20-mixed-indent.yaml` now returns a structural parse issue instead of `null`.
+- `sanitize fix --json examples/yaml/20-mixed-indent.yaml` now reports the parser-derived original lint issue and still fixes the indentation successfully.
+- The span coverage change gives `applyFixes` better structural context without requiring a full rewrite of the fix pipeline.
+
+### What didn't work
+
+- I tried to split the richer lint diagnostics and the sanitize-loop reuse into two separate commits, but the intermediate state left dead wrapper functions behind and failed `golangci-lint` with:
+  - `pkg/yaml/duplicate_keys.go:18:6: func findDuplicateKeys is unused (unused)`
+  - `pkg/yaml/fix.go:184:6: func fixDuplicateKeys is unused (unused)`
+- I collapsed those two slices into one coherent commit instead of forcing a broken midpoint.
+
+### What I learned
+
+- The first user-visible benefit of tree-sitter awareness is not a fancy selector DSL. It is simply making parse-only failures visible in the same lint stream as heuristic issues.
+- Reusing the same analysis object inside `Sanitize` makes later fix-pipeline cleanup much easier because the plumbing is already in place.
+
+### What was tricky to build
+
+- The hardest part was choosing a safe migration for `LintIssue`. I kept `Row` as a compatibility field so the current fix pipeline and tests would not have to be rewritten all at once, while still making the richer span data available immediately.
+
+### What warrants a second pair of eyes
+
+- `pkg/yaml/lint.go` because it now defines the emerging contract for parse-derived issues and heuristic issue spans.
+- `pkg/yaml/sanitize.go` because the orchestration path changed even though the outward API stayed the same.
+- `pkg/yaml/fix.go` because span-aware row coverage subtly changes when tree-driven fixes can trigger.
+
+### What should be done in the future
+
+- Finish the remaining Phase 4 task by removing the separate `lintIssues` parameter from `applyFixes` entirely if that still feels worthwhile after the next refactor.
+- Add a dedicated `mixed_indent` lint rule instead of relying only on the generic structural parse issue.
+- Decide whether `LintIssue.Row` can now be removed or should remain as a compatibility alias.
+
+### Code review instructions
+
+- Start with `pkg/yaml/types.go`.
+- Then read `pkg/yaml/lint.go`.
+- Then read `pkg/yaml/fix.go` and `pkg/yaml/sanitize.go`.
+- Validate with:
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize lint --json examples/yaml/20-mixed-indent.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/20-mixed-indent.yaml`
+
+### Technical details
+
+- Updated files:
+  - `pkg/yaml/types.go`
+  - `pkg/yaml/lint.go`
+  - `pkg/yaml/fix.go`
+  - `pkg/yaml/sanitize.go`
+  - `pkg/yaml/duplicate_keys.go`
+  - `pkg/yaml/sanitize_test.go`

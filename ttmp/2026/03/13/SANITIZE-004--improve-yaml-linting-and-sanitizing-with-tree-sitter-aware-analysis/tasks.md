@@ -10,16 +10,16 @@
 
 ## Phase 1: Shared analysis core
 
-- [ ] Add an internal `analyzeDocument(src string)` path in `pkg/yaml` that parses once and returns plain Go data needed by parse, lint, and fix routines.
-- [ ] Move duplicate-key collection into that shared analysis pass so `findDuplicateKeys` no longer reparses the document.
-- [ ] Introduce a reusable line index helper so byte offsets can be translated to row and column information without repeated full-string scans.
-- [ ] Keep `ParseTree` as a thin wrapper over the shared analysis object rather than as a separate parser entrypoint.
+- [x] Add an internal `analyzeDocument(src string)` path in `pkg/yaml` that parses once and returns plain Go data needed by parse, lint, and fix routines.
+- [x] Move duplicate-key collection into that shared analysis pass so duplicate detection no longer reparses the document.
+- [x] Introduce a reusable line index helper so byte offsets can be translated to row and column information without repeated full-string scans.
+- [x] Keep `ParseTree` as a thin wrapper over the shared analysis object rather than as a separate parser entrypoint.
 
 ## Phase 2: Richer diagnostic model
 
-- [ ] Expand `LintIssue` to carry start and end byte offsets, start and end row and column, and a `Source` field such as `parse`, `heuristic`, or `tree-query`.
-- [ ] Add parser-derived lint issues for structural breakage so parse-only failures show up in lint output and UI output.
-- [ ] Distinguish broad structural issues from narrowly-localized heuristics in descriptions and JSON output.
+- [x] Expand `LintIssue` to carry start and end byte offsets, start and end row and column, and a `Source` field such as `parse`, `heuristic`, or `tree-query`.
+- [x] Add parser-derived lint issues for structural breakage so parse-only failures show up in lint output and UI output.
+- [x] Distinguish broad structural issues from narrowly-localized heuristics in descriptions and JSON output.
 - [ ] Decide whether `LintIssue.Row` should be removed entirely or retained as a compatibility convenience derived from `StartRow`.
 
 ## Phase 3: Tree-sitter-aware linting
@@ -32,9 +32,9 @@
 ## Phase 4: Tree-sitter-aware fixing
 
 - [ ] Change `applyFixes` to consume the shared analysis result rather than separate `errors` and `lintIssues` slices.
-- [ ] Replace the current `errorRows[e.StartRow] = true` shortcut with span-aware or neighborhood-aware targeting.
-- [ ] Use structural analysis to scope duplicate-key rewrites and indentation normalization more safely.
-- [ ] Preserve the iterative sanitize loop, but ensure each iteration performs one structural analysis instead of repeated unrelated parses.
+- [x] Replace the current `errorRows[e.StartRow] = true` shortcut with span-aware or neighborhood-aware targeting.
+- [x] Use structural analysis to scope duplicate-key rewrites and indentation normalization more safely.
+- [x] Preserve the iterative sanitize loop, but ensure each iteration performs one structural analysis instead of repeated unrelated parses.
 
 ## Phase 5: Surface area updates
 
