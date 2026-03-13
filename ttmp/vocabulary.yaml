@@ -5,6 +5,20 @@ topics:
       description: Backend services
     - slug: websocket
       description: WebSocket lifecycle & events
+    - slug: api-design
+      description: API and contract design work
+    - slug: json
+      description: JSON parsing and sanitizing work
+    - slug: release-readiness
+      description: Release readiness and publishability review
+    - slug: documentation
+      description: Documentation and onboarding deliverables
+    - slug: yaml
+      description: YAML parsing, linting, and sanitizing work
+    - slug: linting
+      description: Static and structural lint analysis work
+    - slug: treesitter
+      description: Tree-sitter parsing and syntax-tree analysis work
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

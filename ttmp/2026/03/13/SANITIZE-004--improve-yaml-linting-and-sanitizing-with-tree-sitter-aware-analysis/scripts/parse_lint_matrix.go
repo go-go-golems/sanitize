@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
@@ -21,6 +22,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println("---")
+	fmt.Println("Title: Parse vs Lint Matrix")
+	fmt.Println("Ticket: SANITIZE-004")
+	fmt.Println("Status: active")
+	fmt.Println("Topics:")
+	fmt.Println("    - yaml")
+	fmt.Println("    - linting")
+	fmt.Println("    - treesitter")
+	fmt.Println("DocType: reference")
+	fmt.Println("Intent: short-term")
+	fmt.Println("Owners: []")
+	fmt.Println("RelatedFiles: []")
+	fmt.Println("ExternalSources: []")
+	fmt.Println("Summary: \"Generated matrix comparing parse errors and lint issues across examples/yaml.\"")
+	fmt.Printf("LastUpdated: %s\n", time.Now().Format(time.RFC3339Nano))
+	fmt.Println("WhatFor: \"Generated evidence comparing parser and linter coverage across the YAML example corpus.\"")
+	fmt.Println("WhenToUse: \"Use when validating tree-sitter-aware linting changes.\"")
+	fmt.Println("---")
+	fmt.Println()
 	fmt.Println("# Parse vs Lint Matrix")
 	fmt.Println()
 	fmt.Printf("Generated from `%s` with `%d` file(s).\n", *root, len(paths))
