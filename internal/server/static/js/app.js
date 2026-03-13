@@ -157,16 +157,23 @@ treeToggle.addEventListener('click', () => {
 function prettyTree(sexp) {
   let out = '', depth = 0, i = 0;
   const ind = () => '  '.repeat(depth);
+  const endsWithNewline = () => {
+    for (let k = out.length - 1; k >= 0; k--) {
+      if (out[k] === '\n') return true;
+      if (out[k] !== ' ') return false;
+    }
+    return out.length === 0;
+  };
   while (i < sexp.length) {
     const ch = sexp[i];
     if (ch === '(') {
-      if (out.length > 0 && out[out.length - 1] !== '\n') out += '\n' + ind();
-      out += ch; depth++; i++;
+      if (out.length > 0 && !endsWithNewline()) out += '\n';
+      out += ind() + ch; depth++; i++;
     } else if (ch === ')') {
       depth--; out += ch; i++;
     } else if (ch === ' ') {
       if (i + 1 < sexp.length && sexp[i + 1] === '(') {
-        out += '\n' + ind(); i++;
+        out += '\n'; i++;
       } else { out += ch; i++; }
     } else { out += ch; i++; }
   }
