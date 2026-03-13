@@ -9,6 +9,9 @@
 ## Phase 2: LLM-oriented error taxonomy
 
 - [x] Capture the common malformed-JSON patterns produced by LLMs.
+- [x] Import the external `json-parse-errors.md` note into ticket-local sources.
+- [x] Generate an initial tree-sitter replication matrix for the malformed JSON cases.
+- [x] Generate an initial heuristic-probe report to show which malformed cases are detectable without a full parser.
 - [ ] Map each common malformed pattern to whether it should be lint-only, auto-fixable, or suggestion-only.
 - [ ] Decide which malformed patterns are too ambiguous to auto-rewrite.
 
@@ -28,4 +31,10 @@
 
 - [ ] Expand the ticket design with a concrete implementation plan once the parser strategy is chosen.
 - [ ] Add implementation diary entries as JSON support work begins.
-- [ ] Run `docmgr doctor --ticket SANITIZE-007 --stale-after 30`.
+- [x] Run `docmgr doctor --ticket SANITIZE-007 --stale-after 30`.
+
+## Phase 6: Experiment tooling
+
+- [x] Add a ticket-local tree-sitter JSON parse inspection script under `scripts/`.
+- [x] Add a ticket-local malformed-case matrix script under `scripts/`.
+- [x] Add a ticket-local heuristic-probe script under `scripts/`.

@@ -9,13 +9,29 @@ Topics:
 DocType: design-doc
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-error-matrix/main.go
+      Note: Replicates malformed cases against encoding/json and tree-sitter
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-heuristic-probe/main.go
+      Note: Probes heuristic detectability of malformed JSON cases
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-tree-sitter-parse/main.go
+      Note: Standalone tree-sitter JSON parse inspector
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/01-json-parse-error-replication-matrix.md
+      Note: Generated replication report comparing encoding/json and tree-sitter
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/02-json-heuristic-probe.md
+      Note: Generated heuristic hit report for malformed JSON cases
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/local/03-json-parse-errors-import.md
+      Note: Normalized imported malformed JSON case source used for experiments
+    - Path: ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/local/json-parse-errors.md
+      Note: Imported malformed JSON case source used for experiments
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-03-13T19:01:54.917234698-04:00
 WhatFor: Capture the initial JSON-support direction with emphasis on malformed JSON commonly produced by LLMs.
 WhenToUse: Use when scoping JSON support, parser strategy, and error recovery behavior.
 ---
+
+
 
 # JSON support outline and malformed LLM JSON error taxonomy
 

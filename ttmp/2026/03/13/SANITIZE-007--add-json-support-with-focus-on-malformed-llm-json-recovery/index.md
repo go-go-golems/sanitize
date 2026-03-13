@@ -10,12 +10,14 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles: []
-ExternalSources: []
+ExternalSources:
+    - local:json-parse-errors.md
 Summary: ""
-LastUpdated: 2026-03-13T19:01:43.486265439-04:00
+LastUpdated: 2026-03-13T19:32:38.618853469-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Add JSON support with focus on malformed LLM JSON recovery
 
