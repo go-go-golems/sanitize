@@ -106,3 +106,46 @@ func TestRunServeReturnsNonZeroOnInvalidPort(t *testing.T) {
 		t.Fatalf("expected empty stdout, got %q", stdout.String())
 	}
 }
+
+func TestRunParseJSONReturnsZeroForCleanInput(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"parse", "--json"}, strings.NewReader("name: Alice\n"), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+
+	var result struct {
+		TreeText string                   `json:"tree_text"`
+		Errors   []yamlsanitize.ErrorNode `json:"errors"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if result.TreeText == "" {
+		t.Fatal("expected non-empty parse tree")
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("expected no parse errors, got %+v", result.Errors)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunParseTextReturnsNonZeroOnErrors(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"parse"}, strings.NewReader("foo: bar: baz\n"), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+	if stdout.Len() == 0 {
+		t.Fatal("expected parse tree on stdout")
+	}
+	if !strings.Contains(stderr.String(), "parse error(s)") {
+		t.Fatalf("expected parse summary on stderr, got %q", stderr.String())
+	}
+}

@@ -27,6 +27,11 @@ type lintSettings struct {
 	JSON  bool   `glazed:"json"`
 }
 
+type parseSettings struct {
+	Input string `glazed:"input"`
+	JSON  bool   `glazed:"json"`
+}
+
 type serveSettings struct {
 	Port int `glazed:"port"`
 }
@@ -41,8 +46,18 @@ type lintCommand struct {
 	streams Streams
 }
 
+type parseCommand struct {
+	*glazecmds.CommandDescription
+	streams Streams
+}
+
 type serveCommand struct {
 	*glazecmds.CommandDescription
+}
+
+type parseOutput struct {
+	TreeText string                   `json:"tree_text"`
+	Errors   []yamlsanitize.ErrorNode `json:"errors"`
 }
 
 func newFixCommand(streams Streams) (glazecmds.Command, error) {
@@ -158,6 +173,70 @@ func (c *lintCommand) Run(_ context.Context, vals *values.Values) error {
 	return nil
 }
 
+func newParseCommand(streams Streams) (glazecmds.Command, error) {
+	sections, err := defaultSections()
+	if err != nil {
+		return nil, err
+	}
+
+	return &parseCommand{
+		CommandDescription: glazecmds.NewCommandDescription(
+			"parse",
+			glazecmds.WithShort("Print the tree-sitter parse tree and structural errors"),
+			glazecmds.WithArguments(
+				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
+			),
+			glazecmds.WithFlags(
+				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output parse tree and errors as JSON")),
+			),
+			glazecmds.WithSections(sections...),
+		),
+		streams: streams,
+	}, nil
+}
+
+func (c *parseCommand) Run(_ context.Context, vals *values.Values) error {
+	settings := &parseSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings); err != nil {
+		return newExitError(1, fmt.Errorf("decode parse settings: %w", err))
+	}
+
+	input, err := readInput(settings.Input, c.streams.Stdin)
+	if err != nil {
+		return newExitError(1, fmt.Errorf("error reading input: %w", err))
+	}
+
+	treeText, errors, err := yamlsanitize.ParseTree(string(input))
+	if err != nil {
+		return newExitError(1, fmt.Errorf("error parsing input: %w", err))
+	}
+
+	result := parseOutput{
+		TreeText: treeText,
+		Errors:   errors,
+	}
+
+	if settings.JSON {
+		enc := json.NewEncoder(c.streams.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(result); err != nil {
+			return newExitError(1, fmt.Errorf("error encoding parse result: %w", err))
+		}
+	} else {
+		if _, err := fmt.Fprintln(c.streams.Stdout, result.TreeText); err != nil {
+			return newExitError(1, fmt.Errorf("error writing parse tree: %w", err))
+		}
+		if err := writeParseSummary(c.streams.Stderr, result.Errors); err != nil {
+			return newExitError(1, err)
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		return newExitError(1, nil)
+	}
+	return nil
+}
+
 func newServeCommand(_ Streams) (glazecmds.Command, error) {
 	sections, err := defaultSections()
 	if err != nil {
@@ -206,6 +285,34 @@ func writeFixSummary(w io.Writer, fixes []yamlsanitize.Fix) error {
 	for _, fix := range fixes {
 		if _, err := fmt.Fprintf(w, "  %s: %s\n", fix.Rule, fix.Description); err != nil {
 			return fmt.Errorf("error writing fix summary: %w", err)
+		}
+	}
+	return nil
+}
+
+func writeParseSummary(w io.Writer, errors []yamlsanitize.ErrorNode) error {
+	if len(errors) == 0 {
+		if _, err := io.WriteString(w, "0 parse error(s)\n"); err != nil {
+			return fmt.Errorf("error writing parse summary: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(w, "%d parse error(s)\n", len(errors)); err != nil {
+		return fmt.Errorf("error writing parse summary: %w", err)
+	}
+	for _, parseErr := range errors {
+		if _, err := fmt.Fprintf(
+			w,
+			"  %s [%d:%d-%d:%d]: %q\n",
+			parseErr.Type,
+			parseErr.StartRow+1,
+			parseErr.StartCol+1,
+			parseErr.EndRow+1,
+			parseErr.EndCol+1,
+			parseErr.Text,
+		); err != nil {
+			return fmt.Errorf("error writing parse summary: %w", err)
 		}
 	}
 	return nil

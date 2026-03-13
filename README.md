@@ -24,6 +24,9 @@ cat broken.yaml | sanitize fix
 # Lint only (no fixing) — exits 1 if issues found
 sanitize lint broken.yaml
 
+# Print the tree-sitter parse tree and structural errors
+sanitize parse broken.yaml
+
 # JSON output (full Result struct)
 sanitize fix --json broken.yaml
 

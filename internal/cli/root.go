@@ -103,6 +103,7 @@ func NewRootCommand(streams Streams) (*cobra.Command, error) {
 	constructors := []func(Streams) (cmds.Command, error){
 		newFixCommand,
 		newLintCommand,
+		newParseCommand,
 		newServeCommand,
 	}
 
