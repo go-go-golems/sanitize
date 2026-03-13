@@ -550,3 +550,101 @@ This is a breaking CLI change, but that is consistent with the earlier decision 
   - `.goreleaser.yaml`
   - `go.mod`
   - `go.sum`
+
+## Step 7: Add A Manual YAML Example Corpus
+
+The next step added a dedicated example corpus for manual testing and demos. Up to this point the repository had the built-in UI snippets in `pkg/yaml/examples.go` and focused unit tests, but it did not have an easy-to-browse directory of real input files that someone could lint, sanitize, diff, or load into the web UI directly from disk.
+
+The new `examples/yaml/` directory fills that gap. It gives the repo a lightweight manual test fixture set without entangling those files with the Go test suite, and it covers both happy-path controls and the rule-specific or regression-specific cases that matter most for release confidence.
+
+### Prompt Context
+
+**User prompt (verbatim):** "make a directory with a ton of different example cases, in a yaml/ subfolder for now, to test the different cases easily."
+
+**Assistant interpretation:** Create a browsable directory of YAML fixture files, organized for manual testing, with enough coverage to exercise the implemented sanitizer behavior and the known regression boundaries.
+
+**Inferred user intent:** Make it easy to manually sanity-check the CLI and server against representative files without having to reconstruct examples from tests or from embedded Go strings.
+
+**Commit (code):** `pending at time of writing this entry`
+
+### What I did
+- Added `examples/yaml/README.md` describing the corpus and how to run common manual checks.
+- Added clean/control fixtures:
+  - `00-valid-basic.yaml`
+  - `01-valid-nested-mapping.yaml`
+  - `02-valid-flow-collections.yaml`
+  - `03-valid-block-scalar.yaml`
+  - `04-valid-comments-and-blank-lines.yaml`
+  - `25-clean-duplicate-like-keys.yaml`
+  - `26-valid-sequence-of-maps.yaml`
+  - `29-valid-url-values.yaml`
+- Added focused broken fixtures for implemented rules:
+  - `10-tab-indent.yaml`
+  - `11-missing-space-after-colon.yaml`
+  - `13-list-dash-no-space.yaml`
+  - `14-trailing-comma-flow-mapping.yaml`
+  - `15-trailing-comma-flow-sequence.yaml`
+  - `16-extra-colon-in-value.yaml`
+  - `17-duplicate-key-sibling.yaml`
+  - `20-mixed-indent.yaml`
+  - `27-extra-colon-needs-quotes.yaml`
+- Added regression and edge-control fixtures:
+  - `12-missing-space-after-colon-url-safe.yaml`
+  - `18-quoted-colon-safe.yaml`
+  - `19-commented-colon-safe.yaml`
+  - `22-duplicate-key-different-parents.yaml`
+  - `23-duplicate-key-separate-sequence-items.yaml`
+  - `28-unresolved-parse-error.yaml`
+- Added mixed-error compound fixtures:
+  - `21-multiple-errors.yaml`
+  - `24-deeply-nested-mixed-errors.yaml`
+- Ran:
+  - `go run ./cmd/sanitize lint examples/yaml/11-missing-space-after-colon.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/22-duplicate-key-different-parents.yaml`
+  - `go run ./cmd/sanitize fix examples/yaml/21-multiple-errors.yaml`
+
+### Why
+- Manual fixtures make release checks faster for humans, especially when debugging CLI behavior or demoing the tool.
+- The regression cases are easier to verify from real files than from embedded strings in tests.
+- The example corpus complements the unit tests without forcing those files into a specific test harness design yet.
+
+### What worked
+- The missing-space fixture reports the expected lint failures.
+- The different-parent duplicate-key regression case stays clean and unchanged.
+- The mixed-error fixture exercises multiple fixers in one run and sanitizes into the expected readable form.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The repo benefits from having three layers of examples now:
+  - small built-in snippets for the web UI
+  - targeted unit tests for correctness
+  - file-based manual fixtures for operator-style validation
+
+### What was tricky to build
+- The main judgment call was deciding which files should be intentionally valid controls versus intentionally broken fixtures. The useful corpus is not just "lots of broken YAML"; it also needs regression boundaries where the sanitizer must *not* change anything.
+
+### What warrants a second pair of eyes
+- The corpus naming scheme is intentionally simple and numeric for easy sorting. If the repo later adds JSON fixtures beside it, it may be worth reviewing whether the numbering and grouping should be expanded into subdirectories.
+
+### What should be done in the future
+- Add a small smoke script that runs `sanitize lint` or `sanitize fix` across the corpus and summarizes expected clean/dirty outcomes.
+- When JSON support lands, mirror this structure under an adjacent `examples/json/` directory.
+
+### Code review instructions
+- Start with `examples/yaml/README.md`.
+- Spot-check:
+  - `examples/yaml/11-missing-space-after-colon.yaml`
+  - `examples/yaml/21-multiple-errors.yaml`
+  - `examples/yaml/22-duplicate-key-different-parents.yaml`
+  - `examples/yaml/23-duplicate-key-separate-sequence-items.yaml`
+- Validate with:
+  - `go run ./cmd/sanitize lint examples/yaml/11-missing-space-after-colon.yaml`
+  - `go run ./cmd/sanitize fix examples/yaml/21-multiple-errors.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/22-duplicate-key-different-parents.yaml`
+
+### Technical details
+- Files changed:
+  - `examples/yaml/README.md`
+  - `examples/yaml/*.yaml`

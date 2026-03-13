@@ -1,0 +1,7 @@
+# deployment config
+app: billing
+
+replicas: 2
+
+# public endpoint
+host: example.com

@@ -23,3 +23,4 @@
 - [x] Replace the hand-rolled CLI with a Glazed/Cobra command tree
 - [x] Fold the standalone `sanitize-server` binary into `sanitize serve`
 - [x] Update README and Goreleaser packaging so the public release ships one `sanitize` binary
+- [x] Add a manually explorable YAML example corpus for quick lint/fix/server checks

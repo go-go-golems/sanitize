@@ -64,3 +64,7 @@ Completed JSON support design analysis, public release review, and intern onboar
 - Replaced the hand-rolled CLI with a Glazed/Cobra command tree using `fix`, `lint`, and `serve`
 - Folded the standalone `sanitize-server` binary into `sanitize serve`
 - Moved the HTTP server into `internal/server`, updated README usage, and removed `sanitize-server` Goreleaser artifacts
+
+## 2026-03-13
+
+- Added `examples/yaml/` as a manual test corpus covering clean cases, single-rule failures, mixed-error inputs, and duplicate-key regressions

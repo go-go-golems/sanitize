@@ -1,0 +1,4 @@
+config:
+  timeout: 30
+  timeout: 60
+  retries: 3

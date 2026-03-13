@@ -1,0 +1,7 @@
+service:
+	name:web
+	port:8080
+	tags:
+	  -frontend
+	  -api
+	env: KEY: VALUE

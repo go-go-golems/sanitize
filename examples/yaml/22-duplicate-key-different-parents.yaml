@@ -1,0 +1,4 @@
+a:
+  timeout: 30
+b:
+  timeout: 60

@@ -1,0 +1,7 @@
+pipeline:
+	stages:
+	  -build
+	  -test
+	metadata:
+	  owner: team: infra
+	  image:{ name: app, tag: latest, }
