@@ -20,6 +20,8 @@ RelatedFiles:
       Note: Added in commit 1ceb01c
     - Path: pkg/yaml/fix.go
       Note: Span-aware parse coverage and shared-analysis usage in commit 273d0ef
+    - Path: pkg/yaml/indentation.go
+      Note: Added in commit ee7f357
     - Path: pkg/yaml/line_index.go
       Note: Added in commit 1ceb01c
     - Path: pkg/yaml/sanitize.go
@@ -36,6 +38,7 @@ LastUpdated: 2026-03-13T08:52:51.121920062-04:00
 WhatFor: Record the concrete steps, commands, decisions, and review guidance for SANITIZE-004.
 WhenToUse: Use when reviewing or continuing the tree-sitter-aware linting investigation.
 ---
+
 
 
 
@@ -462,4 +465,94 @@ I also tightened fix targeting by expanding parse-error coverage from a single s
   - `pkg/yaml/fix.go`
   - `pkg/yaml/sanitize.go`
   - `pkg/yaml/duplicate_keys.go`
+  - `pkg/yaml/sanitize_test.go`
+
+## Step 6: Add a dedicated mixed-indentation lint rule
+
+The next missing piece from the design was a first-class `mixed_indent` lint issue. Up to this point, mixed indentation only surfaced indirectly through a generic structural parse error and then got fixed later by `fixMixedIndentation`. That meant users could not see the specific cause in `Lint`, even though the fixer already knew how to repair it.
+
+I fixed that by extracting shared indentation analysis into a helper, reusing it in both linting and fixing, and finishing the `applyFixes` API cleanup so it now derives its own lint rule view from the shared document analysis.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue the ticket task by task and land the next coherent slice with a focused commit.
+
+**Inferred user intent:** Keep closing explicit ticket tasks, not just making opportunistic changes.
+
+**Commit (code):** `ee7f357` - `feat(yaml): add mixed indentation lint rule`
+
+### What I did
+
+- Added `pkg/yaml/indentation.go` with shared helpers for:
+  - leading-space counting,
+  - dominant indentation unit detection,
+  - mixed-indentation offender row detection.
+- Added `lintMixedIndentation(...)` to `pkg/yaml/lint.go`.
+- Updated `lintIssuesFromAnalysis(...)` to include the new `mixed_indent` rule.
+- Changed `applyFixes(...)` to consume only `src`, `documentAnalysis`, and `cfg`, deriving lint issues internally instead of taking a separate `lintIssues` argument.
+- Updated `fixMixedIndentation(...)` to reuse the new indentation helper instead of maintaining its own duplicate analysis.
+- Added `TestLint_MixedIndentProducesDedicatedIssue`.
+- Ran:
+  - `gofmt -w pkg/yaml/indentation.go pkg/yaml/lint.go pkg/yaml/fix.go pkg/yaml/sanitize.go pkg/yaml/sanitize_test.go`
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize lint --json examples/yaml/20-mixed-indent.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/20-mixed-indent.yaml`
+
+### Why
+
+- The ticket explicitly called for a first-class mixed-indentation lint issue.
+- `applyFixes(...)` was still carrying an avoidable extra parameter even after the shared analysis refactor.
+- The existing fixer logic already had the core indentation reasoning, so it made sense to make lint reuse it too.
+
+### What worked
+
+- `sanitize lint --json examples/yaml/20-mixed-indent.yaml` now emits both:
+  - `structural_parse_error`
+  - `mixed_indent`
+- `sanitize fix --json examples/yaml/20-mixed-indent.yaml` still repairs the file to clean YAML and now reports the dedicated original lint issue alongside the structural parse issue.
+- The fix pipeline is simpler because `applyFixes(...)` no longer needs a separately threaded lint slice.
+
+### What didn't work
+
+- N/A
+
+### What I learned
+
+- Mixed indentation was a good example of the intended architecture: structural parse failure plus a more specific heuristic explanation layered on top.
+- Shared helper extraction made the lint and fix behavior line up more naturally than keeping two similar indentation analyses in separate places.
+
+### What was tricky to build
+
+- The main design choice was how broadly to emit `mixed_indent`. I kept it gated behind existing parse errors so it stays focused on structural failures instead of becoming an over-eager style rule on parse-clean input.
+
+### What warrants a second pair of eyes
+
+- `pkg/yaml/indentation.go` because it is now shared by linting and fixing.
+- `pkg/yaml/fix.go` because the `applyFixes(...)` signature changed and the rule-derivation path moved inward.
+
+### What should be done in the future
+
+- Revisit whether `mixed_indent` should remain parse-gated or eventually become a broader standalone lint rule.
+- Use the same pattern for `extra_colon_in_value`, which is still more line-based than it should be.
+
+### Code review instructions
+
+- Start with `pkg/yaml/indentation.go`.
+- Then read `pkg/yaml/lint.go` and the new `lintMixedIndentation(...)`.
+- Then read `pkg/yaml/fix.go` for the `applyFixes(...)` cleanup.
+- Validate with:
+  - `go test ./pkg/yaml ./cmd/sanitize ./internal/...`
+  - `go run ./cmd/sanitize lint --json examples/yaml/20-mixed-indent.yaml`
+  - `go run ./cmd/sanitize fix --json examples/yaml/20-mixed-indent.yaml`
+
+### Technical details
+
+- New file:
+  - `pkg/yaml/indentation.go`
+- Updated files:
+  - `pkg/yaml/lint.go`
+  - `pkg/yaml/fix.go`
+  - `pkg/yaml/sanitize.go`
   - `pkg/yaml/sanitize_test.go`

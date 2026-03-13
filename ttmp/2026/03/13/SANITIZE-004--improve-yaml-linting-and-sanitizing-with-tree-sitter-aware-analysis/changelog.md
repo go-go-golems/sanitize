@@ -64,3 +64,16 @@ Implemented the Phase 1 shared analysis core (commit 1ceb01c)
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/line_index.go — Reusable line index for byte-to-row translation
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/parse.go — ParseTree now wraps shared analysis
 
+
+## 2026-03-13
+
+Added a dedicated mixed-indent lint rule and completed the applyFixes shared-analysis cleanup (commit ee7f357)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/fix.go — applyFixes signature cleanup and indentation helper reuse
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/indentation.go — Shared indentation analysis for lint and fix
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/lint.go — Mixed-indent diagnostics and lint assembly update
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/sanitize.go — Sanitize loop updated for simplified applyFixes call
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/sanitize_test.go — Regression coverage for mixed-indent linting
+

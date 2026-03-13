@@ -18,6 +18,8 @@ RelatedFiles:
       Note: New shared analysis entrypoint the guide now references
     - Path: pkg/yaml/fix.go
       Note: Fix pipeline described in the guide
+    - Path: pkg/yaml/indentation.go
+      Note: New shared indentation helper the guide should point future contributors to
     - Path: pkg/yaml/line_index.go
       Note: Location helper now part of the implementation story
     - Path: pkg/yaml/lint.go
@@ -34,6 +36,7 @@ LastUpdated: 2026-03-13T08:58:45.541255348-04:00
 WhatFor: Teach a new engineer how the sanitize system works today and how to implement the proposed tree-sitter-aware linting refactor.
 WhenToUse: Use before changing pkg/yaml, the CLI parse/lint/fix commands, or tree-sitter-backed diagnostic behavior.
 ---
+
 
 
 

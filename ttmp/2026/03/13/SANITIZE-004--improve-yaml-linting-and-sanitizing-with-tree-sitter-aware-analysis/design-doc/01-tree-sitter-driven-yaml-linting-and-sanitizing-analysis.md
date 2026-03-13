@@ -16,6 +16,8 @@ RelatedFiles:
       Note: Tree-based duplicate-key detection that currently reparses
     - Path: pkg/yaml/fix.go
       Note: Fix pipeline and current start-row targeting
+    - Path: pkg/yaml/indentation.go
+      Note: Shared indentation analysis now used by lint and fix code
     - Path: pkg/yaml/line_index.go
       Note: Reusable byte-to-row and column translation helper
     - Path: pkg/yaml/lint.go
@@ -36,6 +38,7 @@ LastUpdated: 2026-03-13T08:52:51.114170223-04:00
 WhatFor: Document the current parser-lint-fix architecture, explain where tree-sitter already helps, and define the next refactor for shared structural analysis.
 WhenToUse: Use when refactoring pkg/yaml diagnostics, designing new lint rules, or reasoning about parse-driven fix behavior.
 ---
+
 
 
 
