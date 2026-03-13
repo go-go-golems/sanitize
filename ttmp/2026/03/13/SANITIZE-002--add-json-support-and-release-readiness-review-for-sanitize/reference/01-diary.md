@@ -249,7 +249,7 @@ This was the right first cut because it addressed the most dangerous behavior: s
 
 **Inferred user intent:** Move from analysis into disciplined implementation, with traceable progress and commit-by-commit documentation.
 
-**Commit (code):** pending at time of writing this entry
+**Commit (code):** `0d19eb7` — `fix(yaml): scope duplicate keys to actual mappings`
 
 ### What I did
 - Added `pkg/yaml/duplicate_keys.go` to detect duplicate keys by traversing actual tree-sitter mapping nodes.
@@ -308,3 +308,73 @@ This was the right first cut because it addressed the most dangerous behavior: s
   - `pkg/yaml/lint.go`
   - `pkg/yaml/fix.go`
   - `pkg/yaml/sanitize_test.go`
+
+## Step 4: Fix CLI JSON Exit Codes And Add Command Tests
+
+The second implementation step fixed the machine-readable CLI contract. Before this change, `sanitize --lint --json` and `sanitize --json` could emit structured output but still exit with status `0` even when issues remained. That behavior would make CI, editors, and shell automation silently accept dirty input, which is not acceptable for a release-worthy command.
+
+I refactored the command into a reusable `run(...)` function so the tests could assert exit codes directly without depending on shell wrappers. That made it possible to cover both text and JSON modes in a fast unit-style test file, while still validating the real `go run` behavior from the shell.
+
+### Prompt Context
+
+**User prompt (verbatim):** "work on SANITIZE-002 for making this release worthy. Task by task, commit as you go, keep a detailed diary"
+
+**Assistant interpretation:** Continue executing the next release-readiness task in `SANITIZE-002`, commit the result as a focused step, and record both the code change and its validation in the diary.
+
+**Inferred user intent:** Make the public CLI predictable for automation, not just for interactive use.
+
+**Commit (code):** pending at time of writing this entry
+
+### What I did
+- Refactored `cmd/sanitize/main.go` so `main()` delegates to `run(args, stdin, stdout, stderr)`.
+- Switched flag parsing to a local `flag.FlagSet` so the command can be tested without mutating global process state.
+- Made lint-only mode return exit status `1` even when `--json` is used and issues are present.
+- Made sanitize mode return exit status `1` when parse or lint issues remain even when `--json` is used.
+- Added `cmd/sanitize/main_test.go` with coverage for:
+  - lint text mode on dirty input
+  - lint JSON mode on dirty input
+  - sanitize JSON mode after a successful fix
+  - sanitize JSON mode when parse errors remain
+- Ran:
+  - `gofmt -w cmd/sanitize/main.go cmd/sanitize/main_test.go`
+  - `go test ./cmd/sanitize`
+  - `printf 'name:Alice\n' | go run ./cmd/sanitize --lint --json; echo EXIT:$?`
+  - `printf 'a: [1,2\n' | go run ./cmd/sanitize --json; echo EXIT:$?`
+
+### Why
+- Exit codes are part of the CLI contract, especially for machine-readable modes.
+- Refactoring to a testable `run(...)` path is a low-cost way to harden the command before the larger Glazed redesign in `SANITIZE-003`.
+
+### What worked
+- The `flag.FlagSet` refactor cleanly separated argument parsing from process exit.
+- The new command tests run quickly and cover the previously broken cases directly.
+- Both shell reproductions now return `EXIT:1` as expected.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Small CLIs become much easier to harden once `main()` stops owning all of the logic.
+- The current release ticket can improve the existing CLI contract without blocking on the future Glazed migration.
+
+### What was tricky to build
+- The main edge case was preserving normal help/parse behavior while moving off the package-level `flag` state. Handling `flag.ErrHelp` explicitly keeps the command behavior sane while still making it testable.
+
+### What warrants a second pair of eyes
+- The future Glazed migration should revisit which exit codes should be used for parse errors vs flag parse failures, but the current `0` for help, `2` for flag parse errors, and `1` for dirty input is a defensible baseline.
+
+### What should be done in the future
+- Keep the CLI tests around as a behavior reference when the Glazed rewrite lands.
+
+### Code review instructions
+- Start with `cmd/sanitize/main.go`.
+- Then review `cmd/sanitize/main_test.go`.
+- Validate with:
+  - `go test ./cmd/sanitize`
+  - `printf 'name:Alice\n' | go run ./cmd/sanitize --lint --json; echo EXIT:$?`
+  - `printf 'a: [1,2\n' | go run ./cmd/sanitize --json; echo EXIT:$?`
+
+### Technical details
+- Files changed:
+  - `cmd/sanitize/main.go`
+  - `cmd/sanitize/main_test.go`

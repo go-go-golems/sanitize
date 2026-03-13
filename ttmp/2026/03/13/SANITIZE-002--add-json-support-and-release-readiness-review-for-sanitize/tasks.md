@@ -17,6 +17,8 @@
 - [x] Add a regression test proving `a.timeout` and `b.timeout` do not get flagged or renamed as duplicates
 - [ ] Fix CLI exit-code behavior so `--lint --json` and normal `--json` modes still return non-zero status on dirty input
 - [ ] Add CLI tests covering text output, JSON output, and exit-code behavior
+- [x] Fix CLI exit-code behavior so `--lint --json` and normal `--json` modes still return non-zero status on dirty input
+- [x] Add CLI tests covering text output, JSON output, and exit-code behavior
 - [ ] Replace `http.ListenAndServe` with an explicit `http.Server` and configure read/write/idle timeouts
 - [ ] Bound request sizes in `sanitize-server` handlers and add HTTP handler tests
 - [ ] Resolve the `pkg/yaml/parse.go` integer-conversion warning reported by `gosec`

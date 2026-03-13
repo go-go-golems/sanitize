@@ -46,3 +46,9 @@ Completed JSON support design analysis, public release review, and intern onboar
 
 - Replaced indentation-only duplicate-key detection with tree-scoped mapping analysis
 - Added regression coverage for keys repeated under different parent mappings and different sequence items
+
+## 2026-03-13
+
+- Refactored `cmd/sanitize` into a testable `run(...)` path so CLI exit codes can be asserted directly
+- Fixed non-zero exit behavior for dirty JSON-output runs in both lint and sanitize modes
+- Added command tests covering text output, JSON output, and unresolved parse errors

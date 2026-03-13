@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -11,23 +12,29 @@ import (
 )
 
 func main() {
-	jsonOut := flag.Bool("json", false, "output full result as JSON")
-	lintOnly := flag.Bool("lint", false, "lint only (no fixing)")
-	tabWidth := flag.Int("tab-width", 2, "spaces per tab for tab_indent fixer")
-	maxIter := flag.Int("max-iterations", 10, "maximum fix iterations")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
 
-	var input []byte
-	var err error
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("sanitize", flag.ContinueOnError)
+	flags.SetOutput(stderr)
 
-	if flag.NArg() > 0 {
-		input, err = os.ReadFile(flag.Arg(0))
-	} else {
-		input, err = io.ReadAll(os.Stdin)
+	jsonOut := flags.Bool("json", false, "output full result as JSON")
+	lintOnly := flags.Bool("lint", false, "lint only (no fixing)")
+	tabWidth := flags.Int("tab-width", 2, "spaces per tab for tab_indent fixer")
+	maxIter := flags.Int("max-iterations", 10, "maximum fix iterations")
+
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
 	}
+
+	input, err := readInput(flags.Args(), stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading input: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error reading input: %v\n", err)
+		return 1
 	}
 
 	src := string(input)
@@ -35,16 +42,19 @@ func main() {
 	if *lintOnly {
 		issues := yamlsanitize.Lint(src)
 		if *jsonOut {
-			_ = json.NewEncoder(os.Stdout).Encode(issues)
+			if err := json.NewEncoder(stdout).Encode(issues); err != nil {
+				fmt.Fprintf(stderr, "error encoding lint result: %v\n", err)
+				return 1
+			}
 		} else {
 			for _, li := range issues {
-				fmt.Println(li.Description)
-			}
-			if len(issues) > 0 {
-				os.Exit(1)
+				fmt.Fprintln(stdout, li.Description)
 			}
 		}
-		return
+		if len(issues) > 0 {
+			return 1
+		}
+		return 0
 	}
 
 	result := yamlsanitize.Sanitize(src,
@@ -53,19 +63,34 @@ func main() {
 	)
 
 	if *jsonOut {
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(result)
+		if err := enc.Encode(result); err != nil {
+			fmt.Fprintf(stderr, "error encoding sanitize result: %v\n", err)
+			return 1
+		}
 	} else {
-		fmt.Print(result.Sanitized)
+		if _, err := io.WriteString(stdout, result.Sanitized); err != nil {
+			fmt.Fprintf(stderr, "error writing sanitized output: %v\n", err)
+			return 1
+		}
 		if len(result.Fixes) > 0 {
-			fmt.Fprintf(os.Stderr, "%d fix(es) applied\n", len(result.Fixes))
+			fmt.Fprintf(stderr, "%d fix(es) applied\n", len(result.Fixes))
 			for _, f := range result.Fixes {
-				fmt.Fprintf(os.Stderr, "  %s: %s\n", f.Rule, f.Description)
+				fmt.Fprintf(stderr, "  %s: %s\n", f.Rule, f.Description)
 			}
 		}
-		if !result.ParseClean || !result.LintClean {
-			os.Exit(1)
-		}
 	}
+
+	if !result.ParseClean || !result.LintClean {
+		return 1
+	}
+	return 0
+}
+
+func readInput(args []string, stdin io.Reader) ([]byte, error) {
+	if len(args) > 0 {
+		return os.ReadFile(args[0])
+	}
+	return io.ReadAll(stdin)
 }
