@@ -149,3 +149,87 @@ func TestRunParseTextReturnsNonZeroOnErrors(t *testing.T) {
 		t.Fatalf("expected parse summary on stderr, got %q", stderr.String())
 	}
 }
+
+func TestRunLintJSONWithRuleFilter(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"lint", "--json", "--rule", "missing_space_after_colon"}, strings.NewReader("server:\n\thost:localhost\n"), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+
+	var issues []yamlsanitize.LintIssue
+	if err := json.Unmarshal(stdout.Bytes(), &issues); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "missing_space_after_colon" {
+		t.Fatalf("expected only missing_space_after_colon, got %+v", issues)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunLintReturnsNonZeroOnUnknownRule(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"lint", "--rule", "not_a_rule"}, strings.NewReader("name:Alice\n"), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "invalid rule selection") {
+		t.Fatalf("expected invalid rule selection error, got %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+}
+
+func TestRunFixWithDisabledRuleSkipsFix(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"fix", "--disable-rule", "missing_space_after_colon"}, strings.NewReader("server:\n\thost:localhost\n"), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0 because the remaining issue is disabled, got %d", exitCode)
+	}
+	if strings.Contains(stdout.String(), "host: localhost") {
+		t.Fatalf("expected missing_space_after_colon to remain disabled, got %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "\t") {
+		t.Fatalf("expected tab_indent to remain enabled, got %q", stdout.String())
+	}
+}
+
+func TestRunRulesJSONReturnsCatalog(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"rules", "--json"}, strings.NewReader(""), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+
+	var rules []yamlsanitize.RuleSpec
+	if err := json.Unmarshal(stdout.Bytes(), &rules); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if len(rules) == 0 {
+		t.Fatal("expected non-empty rule catalog")
+	}
+	found := false
+	for _, rule := range rules {
+		if rule.Name == "tab_indent" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected tab_indent in rule catalog, got %+v", rules)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}

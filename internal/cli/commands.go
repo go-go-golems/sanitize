@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"text/tabwriter"
 
 	glazecmds "github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
@@ -16,20 +17,28 @@ import (
 )
 
 type fixSettings struct {
-	Input         string `glazed:"input"`
-	JSON          bool   `glazed:"json"`
-	TabWidth      int    `glazed:"tab-width"`
-	MaxIterations int    `glazed:"max-iterations"`
+	Input         string   `glazed:"input"`
+	JSON          bool     `glazed:"json"`
+	TabWidth      int      `glazed:"tab-width"`
+	MaxIterations int      `glazed:"max-iterations"`
+	Rules         []string `glazed:"rule"`
+	DisableRules  []string `glazed:"disable-rule"`
 }
 
 type lintSettings struct {
-	Input string `glazed:"input"`
-	JSON  bool   `glazed:"json"`
+	Input        string   `glazed:"input"`
+	JSON         bool     `glazed:"json"`
+	Rules        []string `glazed:"rule"`
+	DisableRules []string `glazed:"disable-rule"`
 }
 
 type parseSettings struct {
 	Input string `glazed:"input"`
 	JSON  bool   `glazed:"json"`
+}
+
+type rulesSettings struct {
+	JSON bool `glazed:"json"`
 }
 
 type serveSettings struct {
@@ -47,6 +56,11 @@ type lintCommand struct {
 }
 
 type parseCommand struct {
+	*glazecmds.CommandDescription
+	streams Streams
+}
+
+type rulesCommand struct {
 	*glazecmds.CommandDescription
 	streams Streams
 }
@@ -77,6 +91,8 @@ func newFixCommand(streams Streams) (glazecmds.Command, error) {
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output the full sanitize result as JSON")),
 				fields.New("tab-width", fields.TypeInteger, fields.WithDefault(2), fields.WithHelp("Spaces per tab for the tab_indent fixer")),
 				fields.New("max-iterations", fields.TypeInteger, fields.WithDefault(10), fields.WithHelp("Maximum number of fix iterations")),
+				fields.New("rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Enable only the named rules (repeat with --rule)")),
+				fields.New("disable-rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Disable the named rules (repeat with --disable-rule)")),
 			),
 			glazecmds.WithSections(sections...),
 		),
@@ -95,10 +111,18 @@ func (c *fixCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
 	}
 
-	result := yamlsanitize.Sanitize(string(input),
-		yamlsanitize.WithTabWidth(settings.TabWidth),
-		yamlsanitize.WithMaxIterations(settings.MaxIterations),
+	opts := append(
+		[]yamlsanitize.Option{
+			yamlsanitize.WithTabWidth(settings.TabWidth),
+			yamlsanitize.WithMaxIterations(settings.MaxIterations),
+		},
+		buildRuleOptions(settings.Rules, settings.DisableRules)...,
 	)
+
+	result, err := yamlsanitize.SanitizeWithOptions(string(input), opts...)
+	if err != nil {
+		return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
+	}
 
 	if settings.JSON {
 		enc := json.NewEncoder(c.streams.Stdout)
@@ -136,6 +160,8 @@ func newLintCommand(streams Streams) (glazecmds.Command, error) {
 			),
 			glazecmds.WithFlags(
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output lint issues as JSON")),
+				fields.New("rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Enable only the named rules (repeat with --rule)")),
+				fields.New("disable-rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Disable the named rules (repeat with --disable-rule)")),
 			),
 			glazecmds.WithSections(sections...),
 		),
@@ -154,7 +180,10 @@ func (c *lintCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
 	}
 
-	issues := yamlsanitize.Lint(string(input))
+	issues, err := yamlsanitize.LintWithOptions(string(input), buildRuleOptions(settings.Rules, settings.DisableRules)...)
+	if err != nil {
+		return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
+	}
 	if settings.JSON {
 		if err := json.NewEncoder(c.streams.Stdout).Encode(issues); err != nil {
 			return newExitError(1, fmt.Errorf("error encoding lint result: %w", err))
@@ -169,6 +198,56 @@ func (c *lintCommand) Run(_ context.Context, vals *values.Values) error {
 
 	if len(issues) > 0 {
 		return newExitError(1, nil)
+	}
+	return nil
+}
+
+func newRulesCommand(streams Streams) (glazecmds.Command, error) {
+	sections, err := defaultSections()
+	if err != nil {
+		return nil, err
+	}
+
+	return &rulesCommand{
+		CommandDescription: glazecmds.NewCommandDescription(
+			"rules",
+			glazecmds.WithShort("List the available YAML lint and fix rules"),
+			glazecmds.WithFlags(
+				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output rule metadata as JSON")),
+			),
+			glazecmds.WithSections(sections...),
+		),
+		streams: streams,
+	}, nil
+}
+
+func (c *rulesCommand) Run(_ context.Context, vals *values.Values) error {
+	settings := &rulesSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings); err != nil {
+		return newExitError(1, fmt.Errorf("decode rules settings: %w", err))
+	}
+
+	rules := yamlsanitize.RuleCatalog()
+	if settings.JSON {
+		enc := json.NewEncoder(c.streams.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(rules); err != nil {
+			return newExitError(1, fmt.Errorf("error encoding rule list: %w", err))
+		}
+		return nil
+	}
+
+	tw := tabwriter.NewWriter(c.streams.Stdout, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "NAME\tLINTS\tFIXES\tDEFAULT\tSUMMARY"); err != nil {
+		return newExitError(1, fmt.Errorf("error writing rule header: %w", err))
+	}
+	for _, rule := range rules {
+		if _, err := fmt.Fprintf(tw, "%s\t%t\t%t\t%t\t%s\n", rule.Name, rule.Lints, rule.Fixes, rule.DefaultEnabled, rule.Summary); err != nil {
+			return newExitError(1, fmt.Errorf("error writing rule list: %w", err))
+		}
+	}
+	if err := tw.Flush(); err != nil {
+		return newExitError(1, fmt.Errorf("error flushing rule list: %w", err))
 	}
 	return nil
 }
@@ -265,6 +344,17 @@ func (c *serveCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, err)
 	}
 	return nil
+}
+
+func buildRuleOptions(rules, disabledRules []string) []yamlsanitize.Option {
+	opts := make([]yamlsanitize.Option, 0, 2)
+	if len(rules) > 0 {
+		opts = append(opts, yamlsanitize.WithOnlyRules(rules...))
+	}
+	if len(disabledRules) > 0 {
+		opts = append(opts, yamlsanitize.WithDisabledRules(disabledRules...))
+	}
+	return opts
 }
 
 func readInput(path string, stdin io.Reader) ([]byte, error) {
