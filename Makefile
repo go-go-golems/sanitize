@@ -1,14 +1,25 @@
-.PHONY: all lint lintmax test build goreleaser install
+.PHONY: all lint lintmax test build goreleaser install gosec govulncheck
 
 VERSION ?= v0.1.0
 GORELEASER_ARGS ?= --skip=sign --snapshot --clean
 GORELEASER_TARGET ?= --single-target
+
+docker-lint:
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest golangci-lint run -v
 
 lint:
 	GOWORK=off golangci-lint run -v
 
 lintmax:
 	GOWORK=off golangci-lint run -v --max-same-issues=100
+
+gosec:
+	GOWORK=off go install github.com/securego/gosec/v2/cmd/gosec@latest
+	gosec -exclude-generated -exclude=G101,G304,G301,G306 -exclude-dir=.history ./...
+
+govulncheck:
+	GOWORK=off go install golang.org/x/vuln/cmd/govulncheck@latest
+	govulncheck ./...
 
 test:
 	GOWORK=off go test ./...
