@@ -16,16 +16,14 @@ type duplicateKeyOccurrence struct {
 }
 
 func findDuplicateKeys(src string) []duplicateKeyOccurrence {
-	parser := newParser()
-	defer parser.Close()
-
-	content := []byte(src)
-	tree := parser.Parse(content, nil)
-	if tree == nil {
+	analysis, err := analyzeDocument(src)
+	if err != nil {
 		return nil
 	}
-	defer tree.Close()
+	return analysis.DuplicateKeys
+}
 
+func collectDuplicateKeys(root *sitter.Node, content []byte) []duplicateKeyOccurrence {
 	var duplicates []duplicateKeyOccurrence
 	var visit func(*sitter.Node)
 	visit = func(node *sitter.Node) {
@@ -45,7 +43,7 @@ func findDuplicateKeys(src string) []duplicateKeyOccurrence {
 		}
 	}
 
-	visit(tree.RootNode())
+	visit(root)
 	return duplicates
 }
 
@@ -129,14 +127,4 @@ func nodeText(src []byte, node *sitter.Node) string {
 		return ""
 	}
 	return string(src[startByte:endByte])
-}
-
-func lineIndexAtByte(src string, byteOffset uint) int {
-	line := 0
-	for i := 0; i < len(src) && uint(i) < byteOffset; i++ {
-		if src[i] == '\n' {
-			line++
-		}
-	}
-	return line
 }

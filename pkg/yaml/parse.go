@@ -1,8 +1,6 @@
 package yamlsanitize
 
 import (
-	"fmt"
-
 	yaml "github.com/tree-sitter-grammars/tree-sitter-yaml/bindings/go"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -20,19 +18,11 @@ func newParser() *sitter.Parser {
 // ParseTree returns the tree-sitter sexp representation of the YAML source,
 // plus any ERROR/MISSING nodes found.
 func ParseTree(src string) (string, []ErrorNode, error) {
-	parser := newParser()
-	defer parser.Close()
-
-	content := []byte(src)
-	tree := parser.Parse(content, nil)
-	if tree == nil {
-		return "", nil, fmt.Errorf("tree-sitter returned nil tree")
+	analysis, err := analyzeDocument(src)
+	if err != nil {
+		return "", nil, err
 	}
-	defer tree.Close()
-
-	root := tree.RootNode()
-	errors := collectErrors(root, content)
-	return root.ToSexp(), errors, nil
+	return analysis.TreeText, analysis.ParseErrors, nil
 }
 
 // collectErrors walks the tree and gathers all ERROR and MISSING nodes.

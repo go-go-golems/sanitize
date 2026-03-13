@@ -17,6 +17,14 @@ var (
 
 // Lint scans the source for common YAML mistakes and returns a list of issues.
 func Lint(src string) []LintIssue {
+	doc, err := analyzeDocument(src)
+	if err != nil {
+		return lintLineIssues(src, lineIndex{})
+	}
+	return lintLineIssues(src, doc.LineIndex, doc.DuplicateKeys)
+}
+
+func lintLineIssues(src string, li lineIndex, duplicates ...[]duplicateKeyOccurrence) []LintIssue {
 	var issues []LintIssue
 	lines := strings.Split(src, "\n")
 
@@ -90,8 +98,12 @@ func Lint(src string) []LintIssue {
 		}
 	}
 
-	for _, duplicate := range findDuplicateKeys(src) {
-		line := lineIndexAtByte(src, duplicate.StartByte)
+	var duplicateKeys []duplicateKeyOccurrence
+	if len(duplicates) > 0 {
+		duplicateKeys = duplicates[0]
+	}
+	for _, duplicate := range duplicateKeys {
+		line := li.rowAtByte(duplicate.StartByte)
 		issues = append(issues, LintIssue{
 			Rule:        "duplicate_key",
 			Description: fmt.Sprintf("Line %d: duplicate key '%s'", line+1, duplicate.Key),

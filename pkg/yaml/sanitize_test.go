@@ -397,3 +397,28 @@ func TestGCD(t *testing.T) {
 		}
 	}
 }
+
+func TestLineIndexAtByte(t *testing.T) {
+	src := "alpha\nbeta\ngamma"
+	index := newLineIndex(src)
+
+	tests := []struct {
+		offset uint
+		row    int
+		col    int
+	}{
+		{0, 0, 0},
+		{2, 0, 2},
+		{6, 1, 0},
+		{9, 1, 3},
+		{11, 2, 0},
+		{15, 2, 4},
+	}
+
+	for _, tt := range tests {
+		row, col := index.rowColAtByte(tt.offset)
+		if row != tt.row || col != tt.col {
+			t.Fatalf("rowColAtByte(%d) = (%d, %d), want (%d, %d)", tt.offset, row, col, tt.row, tt.col)
+		}
+	}
+}
