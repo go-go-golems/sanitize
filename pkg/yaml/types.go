@@ -12,7 +12,7 @@ package yamlsanitize
 
 // ErrorNode describes a tree-sitter ERROR or MISSING node found during parsing.
 type ErrorNode struct {
-	Type      string `json:"type"`       // "ERROR" or "MISSING"
+	Type      string `json:"type"` // "ERROR" or "MISSING"
 	StartByte uint   `json:"start_byte"`
 	EndByte   uint   `json:"end_byte"`
 	StartRow  uint   `json:"start_row"`

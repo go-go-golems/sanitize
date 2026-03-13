@@ -3,8 +3,8 @@ package yamlsanitize
 import (
 	"fmt"
 
-	sitter "github.com/tree-sitter/go-tree-sitter"
 	yaml "github.com/tree-sitter-grammars/tree-sitter-yaml/bindings/go"
+	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 // newParser creates a configured tree-sitter parser for YAML.
