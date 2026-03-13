@@ -397,7 +397,7 @@ This step tightened the server in-place before the larger CLI migration. That se
 
 **Inferred user intent:** Eliminate the remaining concrete release blockers before moving into design-driven refactors like the Glazed CLI migration.
 
-**Commit (code):** `pending at time of writing this entry`
+**Commit (code):** `0849cc8` — `refactor(cli): move sanitize to glazed subcommands`
 
 ### What I did
 - Reworked `cmd/sanitize-server/main.go` so startup builds an explicit `http.Server` instead of calling `http.ListenAndServe` directly.
