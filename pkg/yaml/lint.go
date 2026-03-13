@@ -19,19 +19,19 @@ var (
 func Lint(src string) []LintIssue {
 	doc, err := analyzeDocument(src)
 	if err != nil {
-		return lintLineIssues(src, lineIndex{})
+		return lintLineIssues(src, lineIndex{}, nil)
 	}
 	return lintIssuesFromAnalysis(src, doc)
 }
 
 func lintIssuesFromAnalysis(src string, doc documentAnalysis) []LintIssue {
 	issues := lintFromParseErrors(doc.ParseErrors)
-	issues = append(issues, lintLineIssues(src, doc.LineIndex, doc.DuplicateKeys)...)
+	issues = append(issues, lintLineIssues(src, doc.LineIndex, doc.ParseErrors, doc.DuplicateKeys)...)
 	issues = append(issues, lintMixedIndentation(src, doc)...)
 	return issues
 }
 
-func lintLineIssues(src string, li lineIndex, duplicates ...[]duplicateKeyOccurrence) []LintIssue {
+func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicates ...[]duplicateKeyOccurrence) []LintIssue {
 	var issues []LintIssue
 	lines := strings.Split(src, "\n")
 	lineOffset := 0
@@ -105,7 +105,8 @@ func lintLineIssues(src string, li lineIndex, duplicates ...[]duplicateKeyOccurr
 					!strings.HasPrefix(rest, `[`) &&
 					!strings.HasPrefix(rest, `|`) &&
 					!strings.HasPrefix(rest, `>`) &&
-					reExtraColon.MatchString(rest) {
+					reExtraColon.MatchString(rest) &&
+					parseErrorTouchesRow(parseErrors, i, 1) {
 					issues = append(issues, newLineLintIssue(
 						"extra_colon_in_value",
 						fmt.Sprintf("Line %d: plain scalar value contains a colon — may need quoting", row),
@@ -145,6 +146,20 @@ func lintLineIssues(src string, li lineIndex, duplicates ...[]duplicateKeyOccurr
 	}
 
 	return issues
+}
+
+func parseErrorTouchesRow(errors []ErrorNode, row int, nearbyDistance int) bool {
+	for _, parseErr := range errors {
+		startRow := int(parseErr.StartRow)
+		endRow := int(parseErr.EndRow)
+		if row >= startRow && row <= endRow {
+			return true
+		}
+		if nearbyDistance > 0 && row >= startRow-nearbyDistance && row <= endRow+nearbyDistance {
+			return true
+		}
+	}
+	return false
 }
 
 func lintFromParseErrors(errors []ErrorNode) []LintIssue {

@@ -168,6 +168,23 @@ func TestLint_ExtraColonInValue(t *testing.T) {
 	}
 }
 
+func TestLint_ExtraColonInValue_NearParseErrorOnly(t *testing.T) {
+	src := "message: key: value\nowner: team: core-platform\n"
+	issues := Lint(src)
+	rows := map[int]bool{}
+	for _, li := range issues {
+		if li.Rule == "extra_colon_in_value" {
+			rows[li.Row] = true
+		}
+	}
+	if !rows[0] {
+		t.Fatal("expected extra_colon_in_value on row 0")
+	}
+	if !rows[1] {
+		t.Fatal("expected extra_colon_in_value on adjacent row 1")
+	}
+}
+
 func TestLint_Clean(t *testing.T) {
 	src := "name: Alice\nage: 30\n"
 	issues := Lint(src)
@@ -328,6 +345,28 @@ func TestFix_ExtraColonInValue(t *testing.T) {
 	// The value should be quoted
 	if !strings.Contains(result.Sanitized, `"foba: sldkjf"`) {
 		t.Errorf("expected quoted value, got:\n%s", result.Sanitized)
+	}
+}
+
+func TestApplyFixes_ExtraColonInValue_DoesNotAutoFixAdjacentRowInSinglePass(t *testing.T) {
+	src := "message: key: value\nowner: team: core-platform\n"
+	doc, err := analyzeDocument(src)
+	if err != nil {
+		t.Fatalf("analyzeDocument: %v", err)
+	}
+
+	fixed, fixes := applyFixes(src, doc, &config{
+		maxIterations: defaultConfig().maxIterations,
+		tabWidth:      defaultConfig().tabWidth,
+	})
+	if !strings.Contains(fixed, `message: "key: value"`) {
+		t.Fatalf("expected first line to be quoted, got:\n%s", fixed)
+	}
+	if strings.Contains(fixed, `owner: "team: core-platform"`) {
+		t.Fatalf("did not expect adjacent row to be auto-quoted in a single pass, got:\n%s", fixed)
+	}
+	if len(fixes) != 1 || fixes[0].Rule != "extra_colon_in_value" {
+		t.Fatalf("expected exactly one extra_colon_in_value fix, got %+v", fixes)
 	}
 }
 

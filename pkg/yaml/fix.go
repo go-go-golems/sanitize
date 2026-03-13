@@ -136,7 +136,7 @@ func fixLine(line string, row int, rules []string, hasTreeErr bool, cfg *config)
 	}
 
 	// Rule: extra colon in plain scalar value — quote the value.
-	if (hasRule("extra_colon_in_value") || hasTreeErr) && cfg.ruleEnabled("extra_colon_in_value") {
+	if hasTreeErr && cfg.ruleEnabled("extra_colon_in_value") {
 		newLine := fixExtraColonInValue(line)
 		if newLine != line {
 			fixes = append(fixes, Fix{
