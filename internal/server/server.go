@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-go-golems/sanitize/examples"
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
 
@@ -78,7 +79,17 @@ func New(port int) (*http.Server, error) {
 
 func examplesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONHeaders(w)
-	if err := json.NewEncoder(w).Encode(yamlsanitize.Examples); err != nil {
+
+	// Merge built-in examples (concise demos) with file-based corpus.
+	var all []yamlsanitize.Example
+	for _, ex := range yamlsanitize.Examples {
+		ex.Source = "builtin"
+		ex.Category = "demo"
+		all = append(all, ex)
+	}
+	all = append(all, examples.LoadFileExamples()...)
+
+	if err := json.NewEncoder(w).Encode(all); err != nil {
 		http.Error(w, "failed to encode examples", http.StatusInternalServerError)
 	}
 }

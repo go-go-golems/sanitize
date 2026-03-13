@@ -65,4 +65,7 @@ type Example struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	YAML        string `json:"yaml"`
+	Category    string `json:"category,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Filename    string `json:"filename,omitempty"`
 }
