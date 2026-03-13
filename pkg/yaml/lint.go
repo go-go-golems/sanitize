@@ -12,7 +12,6 @@ var (
 	reMissingSpace  = regexp.MustCompile(`^(\s*)([^#\s][^:]*):([^\s/\n][^\n]*)$`)
 	reBadDash       = regexp.MustCompile(`^(\s*)-([^\s\-\n])`)
 	reTrailingComma = regexp.MustCompile(`,\s*([}\]])`)
-	reKeyLine       = regexp.MustCompile(`^(\s*)([^#\s\-\[{][^:]*[^:\s]):\s`)
 	reExtraColon    = regexp.MustCompile(`:\s`)
 )
 
@@ -20,8 +19,6 @@ var (
 func Lint(src string) []LintIssue {
 	var issues []LintIssue
 	lines := strings.Split(src, "\n")
-
-	seenKeys := map[string]bool{}
 
 	for i, line := range lines {
 		row := i + 1 // 1-indexed for display
@@ -69,21 +66,6 @@ func Lint(src string) []LintIssue {
 			})
 		}
 
-		// Duplicate keys (simple heuristic: track indent+key pairs)
-		if m := reKeyLine.FindStringSubmatch(line); m != nil {
-			indent := len(m[1])
-			key := strings.TrimSpace(m[2])
-			mapKey := fmt.Sprintf("%d:%s", indent, key)
-			if seenKeys[mapKey] {
-				issues = append(issues, LintIssue{
-					Rule:        "duplicate_key",
-					Description: fmt.Sprintf("Line %d: duplicate key '%s'", row, key),
-					Row:         i,
-				})
-			}
-			seenKeys[mapKey] = true
-		}
-
 		// Extra colon in plain scalar value
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "-") {
@@ -107,5 +89,14 @@ func Lint(src string) []LintIssue {
 			}
 		}
 	}
+
+	for _, duplicate := range findDuplicateKeys(src) {
+		issues = append(issues, LintIssue{
+			Rule:        "duplicate_key",
+			Description: fmt.Sprintf("Line %d: duplicate key '%s'", duplicate.Line+1, duplicate.Key),
+			Row:         duplicate.Line,
+		})
+	}
+
 	return issues
 }

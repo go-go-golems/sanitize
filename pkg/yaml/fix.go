@@ -8,9 +8,8 @@ import (
 
 // Precompiled regexes for fixers.
 var (
-	reMissingSpaceFix  = regexp.MustCompile(`^(\s*[^:]+):([^\s/])`)
-	reExtraColonInVal  = regexp.MustCompile(`^(\s*[^#\s][^:]*:\s+)([^'"{\[|>\n][^\n]*)$`)
-	reDuplicateKeyLine = regexp.MustCompile(`^(\s*)([^#\s\-\[{][^:]*):\s`)
+	reMissingSpaceFix = regexp.MustCompile(`^(\s*[^:]+):([^\s/])`)
+	reExtraColonInVal = regexp.MustCompile(`^(\s*[^#\s][^:]*:\s+)([^'"{\[|>\n][^\n]*)$`)
 )
 
 // applyFixes applies one round of heuristic fixes to the source.
@@ -181,31 +180,37 @@ func fixExtraColonInValue(line string) string {
 
 // fixDuplicateKeys renames duplicate sibling keys by appending a numeric suffix.
 func fixDuplicateKeys(src string) (string, []Fix) {
-	var fixes []Fix
+	duplicates := findDuplicateKeys(src)
+	if len(duplicates) == 0 {
+		return src, nil
+	}
+
 	lines := strings.Split(src, "\n")
-	seen := map[string]int{}
-	for i, line := range lines {
-		m := reDuplicateKeyLine.FindStringSubmatch(line)
-		if m == nil {
+	fixes := make([]Fix, 0, len(duplicates))
+
+	for i := len(duplicates) - 1; i >= 0; i-- {
+		duplicate := duplicates[i]
+		if duplicate.EndByte > uint(len(src)) || duplicate.StartByte >= duplicate.EndByte {
 			continue
 		}
-		indent := m[1]
-		key := strings.TrimSpace(m[2])
-		mapKey := indent + "|" + key
-		if seen[mapKey] > 0 {
-			newKey := fmt.Sprintf("%s_%d", key, seen[mapKey]+1)
-			newLine := strings.Replace(line, m[2], newKey, 1)
-			fixes = append(fixes, Fix{
+
+		newKeyText := duplicateKeyReplacement(duplicate.KeyText, duplicate.DuplicateIndex)
+		src = src[:duplicate.StartByte] + newKeyText + src[duplicate.EndByte:]
+
+		if duplicate.Line >= 0 && duplicate.Line < len(lines) {
+			before := lines[duplicate.Line]
+			after := strings.Replace(before, duplicate.KeyText, newKeyText, 1)
+			lines[duplicate.Line] = after
+			fixes = append([]Fix{{
 				Rule:        "duplicate_key",
-				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", i+1, key, newKey),
-				Before:      line,
-				After:       newLine,
-			})
-			lines[i] = newLine
+				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", duplicate.Line+1, duplicate.Key, duplicateKeyIdentity(newKeyText)),
+				Before:      before,
+				After:       after,
+			}}, fixes...)
 		}
-		seen[mapKey]++
 	}
-	return strings.Join(lines, "\n"), fixes
+
+	return src, fixes
 }
 
 // fixMixedIndentation detects the dominant indent width and normalises lines

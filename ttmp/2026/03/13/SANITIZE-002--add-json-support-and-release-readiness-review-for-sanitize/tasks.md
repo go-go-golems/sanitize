@@ -1,0 +1,24 @@
+# Tasks
+
+## Completed
+
+- [x] Create ticket `SANITIZE-002`
+- [x] Inspect the current codebase and release plumbing
+- [x] Write JSON support architecture and implementation plan
+- [x] Write public release review with concrete findings
+- [x] Write intern-oriented architecture and implementation guide
+- [x] Relate key files, validate with `docmgr doctor`, and upload bundle to reMarkable
+
+## Next Implementation Work
+
+- [ ] Fix duplicate-key detection so keys are scoped to actual sibling mappings rather than indentation-only heuristics
+- [ ] Add a regression test proving `a.timeout` and `b.timeout` do not get flagged or renamed as duplicates
+- [x] Fix duplicate-key detection so keys are scoped to actual sibling mappings rather than indentation-only heuristics
+- [x] Add a regression test proving `a.timeout` and `b.timeout` do not get flagged or renamed as duplicates
+- [ ] Fix CLI exit-code behavior so `--lint --json` and normal `--json` modes still return non-zero status on dirty input
+- [ ] Add CLI tests covering text output, JSON output, and exit-code behavior
+- [ ] Replace `http.ListenAndServe` with an explicit `http.Server` and configure read/write/idle timeouts
+- [ ] Bound request sizes in `sanitize-server` handlers and add HTTP handler tests
+- [ ] Resolve the `pkg/yaml/parse.go` integer-conversion warning reported by `gosec`
+- [ ] Re-run `make gosec` and capture a clean result
+- [ ] Hand off JSON implementation work to `SANITIZE-003` and keep this ticket focused on release readiness findings

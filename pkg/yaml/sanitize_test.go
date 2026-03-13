@@ -133,6 +133,26 @@ func TestLint_DuplicateKey(t *testing.T) {
 	}
 }
 
+func TestLint_DuplicateKeyDifferentParents(t *testing.T) {
+	src := "a:\n  timeout: 30\nb:\n  timeout: 60\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "duplicate_key" {
+			t.Fatalf("did not expect duplicate_key issue across different mappings: %+v", li)
+		}
+	}
+}
+
+func TestLint_DuplicateKeyDifferentSequenceItems(t *testing.T) {
+	src := "items:\n  - name: a\n    id: 1\n  - name: b\n    id: 2\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "duplicate_key" {
+			t.Fatalf("did not expect duplicate_key issue across different sequence items: %+v", li)
+		}
+	}
+}
+
 func TestLint_ExtraColonInValue(t *testing.T) {
 	src := "env: KEY: VALUE\n"
 	issues := Lint(src)
@@ -204,10 +224,9 @@ func TestFix_TrailingComma(t *testing.T) {
 func TestFix_DuplicateKey(t *testing.T) {
 	src := "config:\n  timeout: 30\n  timeout: 60\n"
 	result := Sanitize(src)
-	if strings.Count(result.Sanitized, "timeout:") < 1 {
-		t.Errorf("expected at least one timeout key")
+	if !strings.Contains(result.Sanitized, "timeout_2: 60") {
+		t.Errorf("expected duplicate key to be renamed, got:\n%s", result.Sanitized)
 	}
-	// One of them should be renamed
 	fixFound := false
 	for _, f := range result.Fixes {
 		if f.Rule == "duplicate_key" {
@@ -217,6 +236,22 @@ func TestFix_DuplicateKey(t *testing.T) {
 	}
 	if !fixFound {
 		t.Error("expected duplicate_key fix to be applied")
+	}
+}
+
+func TestFix_DuplicateKeyDifferentParents(t *testing.T) {
+	src := "a:\n  timeout: 30\nb:\n  timeout: 60\n"
+	result := Sanitize(src)
+	if result.Sanitized != src {
+		t.Fatalf("expected no duplicate-key rewrite across different mappings, got:\n%s", result.Sanitized)
+	}
+}
+
+func TestFix_DuplicateKeyDifferentSequenceItems(t *testing.T) {
+	src := "items:\n  - name: a\n    id: 1\n  - name: b\n    id: 2\n"
+	result := Sanitize(src)
+	if result.Sanitized != src {
+		t.Fatalf("expected no duplicate-key rewrite across different sequence items, got:\n%s", result.Sanitized)
 	}
 }
 
