@@ -77,3 +77,14 @@ Added a dedicated mixed-indent lint rule and completed the applyFixes shared-ana
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/sanitize.go — Sanitize loop updated for simplified applyFixes call
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/sanitize_test.go — Regression coverage for mixed-indent linting
 
+
+## 2026-03-13
+
+Made extra_colon_in_value parse-aware and restricted auto-fixing to direct parse spans (commit 85837b2)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/fix.go — Restrict colon-in-value auto-fixing to direct parse spans
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/lint.go — Gate colon-in-value diagnostics on parse proximity
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/yaml/sanitize_test.go — Regression coverage for parse-aware colon gating
+

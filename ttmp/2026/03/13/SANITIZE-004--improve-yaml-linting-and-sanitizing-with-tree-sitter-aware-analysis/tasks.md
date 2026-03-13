@@ -27,7 +27,7 @@
 - [ ] Keep heuristic rules for parse-clean style issues such as missing spaces, trailing commas, and duplicate keys.
 - [ ] Make structural or ambiguity-prone rules tree-aware by consulting parse-error spans, neighboring rows, and mapping boundaries before emitting issues.
 - [x] Add a first-class mixed-indentation lint issue so parse-only indentation failures are visible before running fixers.
-- [ ] Revisit `extra_colon_in_value` so it can use parse context instead of a line-only colon heuristic.
+- [x] Revisit `extra_colon_in_value` so it can use parse context instead of a line-only colon heuristic.
 
 ## Phase 4: Tree-sitter-aware fixing
 
