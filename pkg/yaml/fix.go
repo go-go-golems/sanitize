@@ -16,7 +16,7 @@ var (
 func applyFixes(src string, doc documentAnalysis, cfg *config) (string, []Fix) {
 	var fixes []Fix
 	lines := strings.Split(src, "\n")
-	lintIssues := lintIssuesFromAnalysis(src, doc)
+	lintIssues := lintIssuesFromAnalysis(src, doc, cfg)
 
 	// Build a set of lint rules per row for quick lookup.
 	lintByRow := map[int][]string{}
@@ -47,7 +47,7 @@ func applyFixes(src string, doc documentAnalysis, cfg *config) (string, []Fix) {
 	}
 
 	// Document-level fixes (duplicate keys).
-	if !changed {
+	if !changed && cfg.ruleEnabled("duplicate_key") {
 		newSrc, f := fixDuplicateKeysOccurrences(strings.Join(lines, "\n"), doc.DuplicateKeys)
 		if newSrc != strings.Join(lines, "\n") {
 			return newSrc, f
@@ -56,7 +56,7 @@ func applyFixes(src string, doc documentAnalysis, cfg *config) (string, []Fix) {
 
 	// Document-level fix: mixed/inconsistent indentation depth.
 	// Only attempt when tree-sitter reported errors (structural breakage).
-	if !changed && len(doc.ParseErrors) > 0 {
+	if !changed && cfg.ruleEnabled("mixed_indent") && len(doc.ParseErrors) > 0 {
 		newSrc, f := fixMixedIndentation(strings.Join(lines, "\n"))
 		if len(f) > 0 {
 			return newSrc, f

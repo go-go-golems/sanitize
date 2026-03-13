@@ -17,21 +17,38 @@ var (
 
 // Lint scans the source for common YAML mistakes and returns a list of issues.
 func Lint(src string) []LintIssue {
-	doc, err := analyzeDocument(src)
+	issues, err := LintWithOptions(src)
 	if err != nil {
-		return lintLineIssues(src, lineIndex{}, nil)
+		return nil
 	}
-	return lintIssuesFromAnalysis(src, doc)
-}
-
-func lintIssuesFromAnalysis(src string, doc documentAnalysis) []LintIssue {
-	issues := lintFromParseErrors(doc.ParseErrors)
-	issues = append(issues, lintLineIssues(src, doc.LineIndex, doc.ParseErrors, doc.DuplicateKeys)...)
-	issues = append(issues, lintMixedIndentation(src, doc)...)
 	return issues
 }
 
-func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicates ...[]duplicateKeyOccurrence) []LintIssue {
+// LintWithOptions scans the source for YAML issues using the provided rule configuration.
+func LintWithOptions(src string, opts ...Option) ([]LintIssue, error) {
+	cfg, err := buildConfig(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return lintWithConfig(src, cfg), nil
+}
+
+func lintWithConfig(src string, cfg config) []LintIssue {
+	doc, err := analyzeDocument(src)
+	if err != nil {
+		return lintLineIssues(src, lineIndex{}, &cfg, nil)
+	}
+	return lintIssuesFromAnalysis(src, doc, &cfg)
+}
+
+func lintIssuesFromAnalysis(src string, doc documentAnalysis, cfg *config) []LintIssue {
+	issues := lintFromParseErrors(doc.ParseErrors, cfg)
+	issues = append(issues, lintLineIssues(src, doc.LineIndex, cfg, doc.ParseErrors, doc.DuplicateKeys)...)
+	issues = append(issues, lintMixedIndentation(src, doc, cfg)...)
+	return issues
+}
+
+func lintLineIssues(src string, li lineIndex, cfg *config, parseErrors []ErrorNode, duplicates ...[]duplicateKeyOccurrence) []LintIssue {
 	var issues []LintIssue
 	lines := strings.Split(src, "\n")
 	lineOffset := 0
@@ -42,7 +59,7 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 		endByte := uint(lineOffset + len(line))
 
 		// Tab indentation
-		if reTabLead.MatchString(line) {
+		if cfg.ruleEnabled("tab_indent") && reTabLead.MatchString(line) {
 			issues = append(issues, newLineLintIssue(
 				"tab_indent",
 				fmt.Sprintf("Line %d: tab used for indentation (YAML requires spaces)", row),
@@ -53,7 +70,7 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 		}
 
 		// Missing space after colon
-		if reMissingSpace.MatchString(line) {
+		if cfg.ruleEnabled("missing_space_after_colon") && reMissingSpace.MatchString(line) {
 			m := reMissingSpace.FindStringSubmatch(line)
 			if m != nil {
 				val := m[3]
@@ -71,7 +88,7 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 		}
 
 		// Bad list dash
-		if reBadDash.MatchString(line) {
+		if cfg.ruleEnabled("list_dash_no_space") && reBadDash.MatchString(line) {
 			issues = append(issues, newLineLintIssue(
 				"list_dash_no_space",
 				fmt.Sprintf("Line %d: list dash not followed by a space", row),
@@ -82,7 +99,7 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 		}
 
 		// Trailing comma in flow collection
-		if reTrailingComma.MatchString(line) {
+		if cfg.ruleEnabled("trailing_comma") && reTrailingComma.MatchString(line) {
 			issues = append(issues, newLineLintIssue(
 				"trailing_comma",
 				fmt.Sprintf("Line %d: trailing comma in flow collection", row),
@@ -94,7 +111,7 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 
 		// Extra colon in plain scalar value
 		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "-") {
+		if cfg.ruleEnabled("extra_colon_in_value") && !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "-") {
 			colonIdx := strings.Index(line, ": ")
 			if colonIdx >= 0 {
 				rest := strings.TrimSpace(line[colonIdx+2:])
@@ -129,6 +146,9 @@ func lintLineIssues(src string, li lineIndex, parseErrors []ErrorNode, duplicate
 		duplicateKeys = duplicates[0]
 	}
 	for _, duplicate := range duplicateKeys {
+		if !cfg.ruleEnabled("duplicate_key") {
+			continue
+		}
 		startRow, startCol := li.rowColAtByte(duplicate.StartByte)
 		endRow, endCol := li.rowColAtByte(duplicate.EndByte)
 		issues = append(issues, LintIssue{
@@ -162,7 +182,7 @@ func parseErrorTouchesRow(errors []ErrorNode, row int, nearbyDistance int) bool 
 	return false
 }
 
-func lintFromParseErrors(errors []ErrorNode) []LintIssue {
+func lintFromParseErrors(errors []ErrorNode, cfg *config) []LintIssue {
 	issues := make([]LintIssue, 0, len(errors))
 	for _, parseErr := range errors {
 		rule := "structural_parse_error"
@@ -176,6 +196,9 @@ func lintFromParseErrors(errors []ErrorNode) []LintIssue {
 				"Line %d: YAML syntax appears to be missing a required element",
 				parseErr.StartRow+1,
 			)
+		}
+		if !cfg.ruleEnabled(rule) {
+			continue
 		}
 
 		issues = append(issues, LintIssue{
@@ -209,7 +232,10 @@ func newLineLintIssue(rule, description string, row int, startByte, endByte uint
 	}
 }
 
-func lintMixedIndentation(src string, doc documentAnalysis) []LintIssue {
+func lintMixedIndentation(src string, doc documentAnalysis, cfg *config) []LintIssue {
+	if !cfg.ruleEnabled("mixed_indent") {
+		return nil
+	}
 	if len(doc.ParseErrors) == 0 {
 		return nil
 	}

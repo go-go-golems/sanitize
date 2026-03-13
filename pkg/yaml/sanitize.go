@@ -3,11 +3,28 @@ package yamlsanitize
 // Sanitize attempts to fix common YAML errors heuristically, iterating until
 // the tree is clean or no more fixes can be applied.
 func Sanitize(src string, opts ...Option) Result {
-	cfg := defaultConfig()
-	for _, o := range opts {
-		o(&cfg)
+	result, err := SanitizeWithOptions(src, opts...)
+	if err != nil {
+		return Result{
+			Original:   src,
+			Sanitized:  src,
+			ParseClean: false,
+			LintClean:  false,
+		}
 	}
+	return result
+}
 
+// SanitizeWithOptions attempts to fix common YAML errors using validated options.
+func SanitizeWithOptions(src string, opts ...Option) (Result, error) {
+	cfg, err := buildConfig(opts...)
+	if err != nil {
+		return Result{}, err
+	}
+	return sanitizeWithConfig(src, cfg), nil
+}
+
+func sanitizeWithConfig(src string, cfg config) Result {
 	original := src
 	var allFixes []Fix
 
@@ -18,10 +35,10 @@ func Sanitize(src string, opts ...Option) Result {
 	if origErr == nil {
 		origTreeText = origDoc.TreeText
 		origErrors = origDoc.ParseErrors
-		origLintIssues = lintIssuesFromAnalysis(original, origDoc)
+		origLintIssues = lintIssuesFromAnalysis(original, origDoc, &cfg)
 	} else {
 		origTreeText, origErrors, _ = ParseTree(original)
-		origLintIssues = Lint(original)
+		origLintIssues = lintWithConfig(original, cfg)
 	}
 
 	// Run up to maxIterations fix iterations.
@@ -32,7 +49,7 @@ func Sanitize(src string, opts ...Option) Result {
 		}
 		treeText := doc.TreeText
 		errors := doc.ParseErrors
-		lintIssues := lintIssuesFromAnalysis(src, doc)
+		lintIssues := lintIssuesFromAnalysis(src, doc, &cfg)
 
 		if len(errors) == 0 && len(lintIssues) == 0 {
 			return Result{
@@ -58,10 +75,10 @@ func Sanitize(src string, opts ...Option) Result {
 			if err == nil {
 				treeText2 = doc2.TreeText
 				errors2 = doc2.ParseErrors
-				lintIssues2 = lintIssuesFromAnalysis(src, doc2)
+				lintIssues2 = lintIssuesFromAnalysis(src, doc2, &cfg)
 			} else {
 				treeText2, errors2, _ = ParseTree(src)
-				lintIssues2 = Lint(src)
+				lintIssues2 = lintWithConfig(src, cfg)
 			}
 			return Result{
 				Original:           original,
@@ -86,10 +103,10 @@ func Sanitize(src string, opts ...Option) Result {
 	if err == nil {
 		treeText = doc.TreeText
 		errors = doc.ParseErrors
-		lintIssues = lintIssuesFromAnalysis(src, doc)
+		lintIssues = lintIssuesFromAnalysis(src, doc, &cfg)
 	} else {
 		treeText, errors, _ = ParseTree(src)
-		lintIssues = Lint(src)
+		lintIssues = lintWithConfig(src, cfg)
 	}
 	return Result{
 		Original:           original,
