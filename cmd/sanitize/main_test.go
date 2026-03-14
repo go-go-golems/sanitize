@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	jsonsanitize "github.com/go-go-golems/sanitize/pkg/json"
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
 
@@ -231,5 +232,94 @@ func TestRunRulesJSONReturnsCatalog(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunParseJSONFormatReturnsZeroForCleanInput(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"parse", "--format", "json", "--json"}, strings.NewReader(`{"name":"Alice"}`), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+
+	var result struct {
+		TreeText string                   `json:"tree_text"`
+		Errors   []jsonsanitize.ErrorNode `json:"errors"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if result.TreeText == "" {
+		t.Fatal("expected non-empty parse tree")
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("expected no parse errors, got %+v", result.Errors)
+	}
+}
+
+func TestRunLintJSONFormatReturnsHeuristicIssue(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"lint", "--format", "json", "--json", "--rule", "python_literals"}, strings.NewReader(`{"ok": True}`), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+
+	var issues []jsonsanitize.LintIssue
+	if err := json.Unmarshal(stdout.Bytes(), &issues); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "python_literals" {
+		t.Fatalf("expected python_literals issue, got %+v", issues)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunRulesJSONFormatReturnsCatalog(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"rules", "--format", "json", "--json"}, strings.NewReader(""), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+
+	var rules []jsonsanitize.RuleSpec
+	if err := json.Unmarshal(stdout.Bytes(), &rules); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	found := false
+	for _, rule := range rules {
+		if rule.Name == "python_literals" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected python_literals in rule catalog, got %+v", rules)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunFixJSONFormatReturnsNotImplemented(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"fix", "--format", "json"}, strings.NewReader(`{"ok": True}`), stdout, stderr)
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "json fix is not implemented yet") {
+		t.Fatalf("expected not implemented error, got %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
 	}
 }

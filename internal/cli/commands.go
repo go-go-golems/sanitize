@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	glazecmds "github.com/go-go-golems/glazed/pkg/cmds"
@@ -13,11 +14,13 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/sanitize/internal/server"
+	jsonsanitize "github.com/go-go-golems/sanitize/pkg/json"
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
 
 type fixSettings struct {
 	Input         string   `glazed:"input"`
+	Format        string   `glazed:"format"`
 	JSON          bool     `glazed:"json"`
 	TabWidth      int      `glazed:"tab-width"`
 	MaxIterations int      `glazed:"max-iterations"`
@@ -27,18 +30,21 @@ type fixSettings struct {
 
 type lintSettings struct {
 	Input        string   `glazed:"input"`
+	Format       string   `glazed:"format"`
 	JSON         bool     `glazed:"json"`
 	Rules        []string `glazed:"rule"`
 	DisableRules []string `glazed:"disable-rule"`
 }
 
 type parseSettings struct {
-	Input string `glazed:"input"`
-	JSON  bool   `glazed:"json"`
+	Input  string `glazed:"input"`
+	Format string `glazed:"format"`
+	JSON   bool   `glazed:"json"`
 }
 
 type rulesSettings struct {
-	JSON bool `glazed:"json"`
+	Format string `glazed:"format"`
+	JSON   bool   `glazed:"json"`
 }
 
 type serveSettings struct {
@@ -88,6 +94,7 @@ func newFixCommand(streams Streams) (glazecmds.Command, error) {
 				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
 			),
 			glazecmds.WithFlags(
+				fields.New("format", fields.TypeString, fields.WithDefault("yaml"), fields.WithHelp("Input format: yaml or json")),
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output the full sanitize result as JSON")),
 				fields.New("tab-width", fields.TypeInteger, fields.WithDefault(2), fields.WithHelp("Spaces per tab for the tab_indent fixer")),
 				fields.New("max-iterations", fields.TypeInteger, fields.WithDefault(10), fields.WithHelp("Maximum number of fix iterations")),
@@ -106,6 +113,14 @@ func (c *fixCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("decode fix settings: %w", err))
 	}
 
+	format, err := normalizeFormat(settings.Format)
+	if err != nil {
+		return newExitError(1, err)
+	}
+	if format == "json" {
+		return newExitError(1, fmt.Errorf("json fix is not implemented yet"))
+	}
+
 	input, err := readInput(settings.Input, c.streams.Stdin)
 	if err != nil {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
@@ -116,7 +131,7 @@ func (c *fixCommand) Run(_ context.Context, vals *values.Values) error {
 			yamlsanitize.WithTabWidth(settings.TabWidth),
 			yamlsanitize.WithMaxIterations(settings.MaxIterations),
 		},
-		buildRuleOptions(settings.Rules, settings.DisableRules)...,
+		buildYAMLRuleOptions(settings.Rules, settings.DisableRules)...,
 	)
 
 	result, err := yamlsanitize.SanitizeWithOptions(string(input), opts...)
@@ -159,6 +174,7 @@ func newLintCommand(streams Streams) (glazecmds.Command, error) {
 				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
 			),
 			glazecmds.WithFlags(
+				fields.New("format", fields.TypeString, fields.WithDefault("yaml"), fields.WithHelp("Input format: yaml or json")),
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output lint issues as JSON")),
 				fields.New("rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Enable only the named rules (repeat with --rule)")),
 				fields.New("disable-rule", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Disable the named rules (repeat with --disable-rule)")),
@@ -175,29 +191,55 @@ func (c *lintCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("decode lint settings: %w", err))
 	}
 
+	format, err := normalizeFormat(settings.Format)
+	if err != nil {
+		return newExitError(1, err)
+	}
+
 	input, err := readInput(settings.Input, c.streams.Stdin)
 	if err != nil {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
 	}
 
-	issues, err := yamlsanitize.LintWithOptions(string(input), buildRuleOptions(settings.Rules, settings.DisableRules)...)
-	if err != nil {
-		return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
-	}
-	if settings.JSON {
-		if err := json.NewEncoder(c.streams.Stdout).Encode(issues); err != nil {
-			return newExitError(1, fmt.Errorf("error encoding lint result: %w", err))
+	switch format {
+	case "yaml":
+		issues, err := yamlsanitize.LintWithOptions(string(input), buildYAMLRuleOptions(settings.Rules, settings.DisableRules)...)
+		if err != nil {
+			return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
 		}
-	} else {
-		for _, issue := range issues {
-			if _, err := fmt.Fprintln(c.streams.Stdout, issue.Description); err != nil {
-				return newExitError(1, fmt.Errorf("error writing lint output: %w", err))
+		if settings.JSON {
+			if err := json.NewEncoder(c.streams.Stdout).Encode(issues); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding lint result: %w", err))
+			}
+		} else {
+			for _, issue := range issues {
+				if _, err := fmt.Fprintln(c.streams.Stdout, issue.Description); err != nil {
+					return newExitError(1, fmt.Errorf("error writing lint output: %w", err))
+				}
 			}
 		}
-	}
-
-	if len(issues) > 0 {
-		return newExitError(1, nil)
+		if len(issues) > 0 {
+			return newExitError(1, nil)
+		}
+	case "json":
+		issues, err := jsonsanitize.LintWithOptions(string(input), buildJSONRuleOptions(settings.Rules, settings.DisableRules)...)
+		if err != nil {
+			return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
+		}
+		if settings.JSON {
+			if err := json.NewEncoder(c.streams.Stdout).Encode(issues); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding lint result: %w", err))
+			}
+		} else {
+			for _, issue := range issues {
+				if _, err := fmt.Fprintln(c.streams.Stdout, issue.Description); err != nil {
+					return newExitError(1, fmt.Errorf("error writing lint output: %w", err))
+				}
+			}
+		}
+		if len(issues) > 0 {
+			return newExitError(1, nil)
+		}
 	}
 	return nil
 }
@@ -213,6 +255,7 @@ func newRulesCommand(streams Streams) (glazecmds.Command, error) {
 			"rules",
 			glazecmds.WithShort("List the available YAML lint and fix rules"),
 			glazecmds.WithFlags(
+				fields.New("format", fields.TypeString, fields.WithDefault("yaml"), fields.WithHelp("Input format: yaml or json")),
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output rule metadata as JSON")),
 			),
 			glazecmds.WithSections(sections...),
@@ -227,12 +270,23 @@ func (c *rulesCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("decode rules settings: %w", err))
 	}
 
-	rules := yamlsanitize.RuleCatalog()
+	format, err := normalizeFormat(settings.Format)
+	if err != nil {
+		return newExitError(1, err)
+	}
+
 	if settings.JSON {
 		enc := json.NewEncoder(c.streams.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(rules); err != nil {
-			return newExitError(1, fmt.Errorf("error encoding rule list: %w", err))
+		switch format {
+		case "yaml":
+			if err := enc.Encode(yamlsanitize.RuleCatalog()); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding rule list: %w", err))
+			}
+		case "json":
+			if err := enc.Encode(jsonsanitize.RuleCatalog()); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding rule list: %w", err))
+			}
 		}
 		return nil
 	}
@@ -241,9 +295,18 @@ func (c *rulesCommand) Run(_ context.Context, vals *values.Values) error {
 	if _, err := fmt.Fprintln(tw, "NAME\tLINTS\tFIXES\tDEFAULT\tSUMMARY"); err != nil {
 		return newExitError(1, fmt.Errorf("error writing rule header: %w", err))
 	}
-	for _, rule := range rules {
-		if _, err := fmt.Fprintf(tw, "%s\t%t\t%t\t%t\t%s\n", rule.Name, rule.Lints, rule.Fixes, rule.DefaultEnabled, rule.Summary); err != nil {
-			return newExitError(1, fmt.Errorf("error writing rule list: %w", err))
+	switch format {
+	case "yaml":
+		for _, rule := range yamlsanitize.RuleCatalog() {
+			if _, err := fmt.Fprintf(tw, "%s\t%t\t%t\t%t\t%s\n", rule.Name, rule.Lints, rule.Fixes, rule.DefaultEnabled, rule.Summary); err != nil {
+				return newExitError(1, fmt.Errorf("error writing rule list: %w", err))
+			}
+		}
+	case "json":
+		for _, rule := range jsonsanitize.RuleCatalog() {
+			if _, err := fmt.Fprintf(tw, "%s\t%t\t%t\t%t\t%s\n", rule.Name, rule.Lints, rule.Fixes, rule.DefaultEnabled, rule.Summary); err != nil {
+				return newExitError(1, fmt.Errorf("error writing rule list: %w", err))
+			}
 		}
 	}
 	if err := tw.Flush(); err != nil {
@@ -266,6 +329,7 @@ func newParseCommand(streams Streams) (glazecmds.Command, error) {
 				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
 			),
 			glazecmds.WithFlags(
+				fields.New("format", fields.TypeString, fields.WithDefault("yaml"), fields.WithHelp("Input format: yaml or json")),
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output parse tree and errors as JSON")),
 			),
 			glazecmds.WithSections(sections...),
@@ -280,38 +344,72 @@ func (c *parseCommand) Run(_ context.Context, vals *values.Values) error {
 		return newExitError(1, fmt.Errorf("decode parse settings: %w", err))
 	}
 
+	format, err := normalizeFormat(settings.Format)
+	if err != nil {
+		return newExitError(1, err)
+	}
+
 	input, err := readInput(settings.Input, c.streams.Stdin)
 	if err != nil {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
 	}
 
-	treeText, errors, err := yamlsanitize.ParseTree(string(input))
-	if err != nil {
-		return newExitError(1, fmt.Errorf("error parsing input: %w", err))
-	}
-
-	result := parseOutput{
-		TreeText: treeText,
-		Errors:   errors,
-	}
-
-	if settings.JSON {
-		enc := json.NewEncoder(c.streams.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(result); err != nil {
-			return newExitError(1, fmt.Errorf("error encoding parse result: %w", err))
+	switch format {
+	case "yaml":
+		treeText, errors, err := yamlsanitize.ParseTree(string(input))
+		if err != nil {
+			return newExitError(1, fmt.Errorf("error parsing input: %w", err))
 		}
-	} else {
-		if _, err := fmt.Fprintln(c.streams.Stdout, result.TreeText); err != nil {
-			return newExitError(1, fmt.Errorf("error writing parse tree: %w", err))
+		result := parseOutput{
+			TreeText: treeText,
+			Errors:   errors,
 		}
-		if err := writeParseSummary(c.streams.Stderr, result.Errors); err != nil {
-			return newExitError(1, err)
+		if settings.JSON {
+			enc := json.NewEncoder(c.streams.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(result); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding parse result: %w", err))
+			}
+		} else {
+			if _, err := fmt.Fprintln(c.streams.Stdout, result.TreeText); err != nil {
+				return newExitError(1, fmt.Errorf("error writing parse tree: %w", err))
+			}
+			if err := writeYAMLParseSummary(c.streams.Stderr, result.Errors); err != nil {
+				return newExitError(1, err)
+			}
 		}
-	}
-
-	if len(result.Errors) > 0 {
-		return newExitError(1, nil)
+		if len(result.Errors) > 0 {
+			return newExitError(1, nil)
+		}
+	case "json":
+		treeText, errors, err := jsonsanitize.ParseTree(string(input))
+		if err != nil {
+			return newExitError(1, fmt.Errorf("error parsing input: %w", err))
+		}
+		result := struct {
+			TreeText string                   `json:"tree_text"`
+			Errors   []jsonsanitize.ErrorNode `json:"errors"`
+		}{
+			TreeText: treeText,
+			Errors:   errors,
+		}
+		if settings.JSON {
+			enc := json.NewEncoder(c.streams.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(result); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding parse result: %w", err))
+			}
+		} else {
+			if _, err := fmt.Fprintln(c.streams.Stdout, result.TreeText); err != nil {
+				return newExitError(1, fmt.Errorf("error writing parse tree: %w", err))
+			}
+			if err := writeJSONParseSummary(c.streams.Stderr, result.Errors); err != nil {
+				return newExitError(1, err)
+			}
+		}
+		if len(result.Errors) > 0 {
+			return newExitError(1, nil)
+		}
 	}
 	return nil
 }
@@ -346,13 +444,24 @@ func (c *serveCommand) Run(_ context.Context, vals *values.Values) error {
 	return nil
 }
 
-func buildRuleOptions(rules, disabledRules []string) []yamlsanitize.Option {
+func buildYAMLRuleOptions(rules, disabledRules []string) []yamlsanitize.Option {
 	opts := make([]yamlsanitize.Option, 0, 2)
 	if len(rules) > 0 {
 		opts = append(opts, yamlsanitize.WithOnlyRules(rules...))
 	}
 	if len(disabledRules) > 0 {
 		opts = append(opts, yamlsanitize.WithDisabledRules(disabledRules...))
+	}
+	return opts
+}
+
+func buildJSONRuleOptions(rules, disabledRules []string) []jsonsanitize.Option {
+	opts := make([]jsonsanitize.Option, 0, 2)
+	if len(rules) > 0 {
+		opts = append(opts, jsonsanitize.WithOnlyRules(rules...))
+	}
+	if len(disabledRules) > 0 {
+		opts = append(opts, jsonsanitize.WithDisabledRules(disabledRules...))
 	}
 	return opts
 }
@@ -380,7 +489,7 @@ func writeFixSummary(w io.Writer, fixes []yamlsanitize.Fix) error {
 	return nil
 }
 
-func writeParseSummary(w io.Writer, errors []yamlsanitize.ErrorNode) error {
+func writeYAMLParseSummary(w io.Writer, errors []yamlsanitize.ErrorNode) error {
 	if len(errors) == 0 {
 		if _, err := io.WriteString(w, "0 parse error(s)\n"); err != nil {
 			return fmt.Errorf("error writing parse summary: %w", err)
@@ -406,4 +515,43 @@ func writeParseSummary(w io.Writer, errors []yamlsanitize.ErrorNode) error {
 		}
 	}
 	return nil
+}
+
+func writeJSONParseSummary(w io.Writer, errors []jsonsanitize.ErrorNode) error {
+	if len(errors) == 0 {
+		if _, err := io.WriteString(w, "0 parse error(s)\n"); err != nil {
+			return fmt.Errorf("error writing parse summary: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(w, "%d parse error(s)\n", len(errors)); err != nil {
+		return fmt.Errorf("error writing parse summary: %w", err)
+	}
+	for _, parseErr := range errors {
+		if _, err := fmt.Fprintf(
+			w,
+			"  %s [%d:%d-%d:%d]: %q\n",
+			parseErr.Type,
+			parseErr.StartRow+1,
+			parseErr.StartCol+1,
+			parseErr.EndRow+1,
+			parseErr.EndCol+1,
+			parseErr.Text,
+		); err != nil {
+			return fmt.Errorf("error writing parse summary: %w", err)
+		}
+	}
+	return nil
+}
+
+func normalizeFormat(format string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "yaml":
+		return "yaml", nil
+	case "json":
+		return "json", nil
+	default:
+		return "", fmt.Errorf("unsupported format %q", format)
+	}
 }
