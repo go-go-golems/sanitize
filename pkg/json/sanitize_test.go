@@ -40,6 +40,28 @@ func TestSanitizeWithOptions_StripsCommentsAndDuplicateComma(t *testing.T) {
 	}
 }
 
+func TestSanitizeWithOptions_MultiStepRecovery(t *testing.T) {
+	src := "Here is the repaired JSON:\n```json\n{\"ok\": True, \"items\": [1,2,],}\n```\nThanks!"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"ok\": true, \"items\": [1,2]}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
+	}
+	if !result.ParseClean || !result.StrictParseClean || !result.LintClean {
+		t.Fatalf("expected fully clean result, got %+v", result)
+	}
+	if len(result.Fixes) < 4 {
+		t.Fatalf("expected multiple staged fixes, got %+v", result.Fixes)
+	}
+}
+
 func TestSanitizeWithOptions_ExtractsJSONFromProse(t *testing.T) {
 	src := "Here is your JSON:\n{\"name\":\"Alice\"}\nThanks!"
 

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -166,5 +167,62 @@ func TestExamplesHandlerIncludesYAMLAndJSONExamples(t *testing.T) {
 	}
 	if !foundYAML || !foundJSON {
 		t.Fatalf("expected both yaml and json examples, got %+v", payload)
+	}
+}
+
+func TestRootServesFormatAwarePlayground(t *testing.T) {
+	srv, err := New(DefaultPort)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%q", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	for _, needle := range []string{
+		"Sanitize Playground",
+		`id="format-select"`,
+		`id="example-select"`,
+		`id="strict-badge"`,
+	} {
+		if !strings.Contains(body, needle) {
+			t.Fatalf("expected %q in root HTML, got %q", needle, body)
+		}
+	}
+}
+
+func TestStaticAppUsesFormatAwareRequestBody(t *testing.T) {
+	srv, err := New(DefaultPort)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/js/app.js", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%q", rec.Code, rec.Body.String())
+	}
+
+	body, err := io.ReadAll(rec.Body)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	js := string(body)
+	for _, needle := range []string{
+		"JSON.stringify({ format: currentFormat, input: src })",
+		"tree-sitter-json",
+		"strict invalid",
+	} {
+		if !strings.Contains(js, needle) {
+			t.Fatalf("expected %q in app.js, got %q", needle, js)
+		}
 	}
 }

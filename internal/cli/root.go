@@ -81,7 +81,7 @@ func buildCobra(command cmds.Command) (*cobra.Command, error) {
 func NewRootCommand(streams Streams) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
 		Use:               "sanitize",
-		Short:             "YAML linter and heuristic fixer",
+		Short:             "Structured-text linter and heuristic fixer",
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},

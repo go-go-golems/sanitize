@@ -245,8 +245,9 @@ func TestRunParseJSONFormatReturnsZeroForCleanInput(t *testing.T) {
 	}
 
 	var result struct {
-		TreeText string                   `json:"tree_text"`
-		Errors   []jsonsanitize.ErrorNode `json:"errors"`
+		TreeText         string                   `json:"tree_text"`
+		Errors           []jsonsanitize.ErrorNode `json:"errors"`
+		StrictParseClean bool                     `json:"strict_parse_clean"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 		t.Fatalf("expected valid JSON output, got error: %v", err)
@@ -256,6 +257,9 @@ func TestRunParseJSONFormatReturnsZeroForCleanInput(t *testing.T) {
 	}
 	if len(result.Errors) != 0 {
 		t.Fatalf("expected no parse errors, got %+v", result.Errors)
+	}
+	if !result.StrictParseClean {
+		t.Fatalf("expected strict parse clean parse output, got %+v", result)
 	}
 }
 

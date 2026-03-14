@@ -89,7 +89,7 @@ func newFixCommand(streams Streams) (glazecmds.Command, error) {
 	return &fixCommand{
 		CommandDescription: glazecmds.NewCommandDescription(
 			"fix",
-			glazecmds.WithShort("Sanitize YAML input"),
+			glazecmds.WithShort("Sanitize YAML or JSON input"),
 			glazecmds.WithArguments(
 				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
 			),
@@ -200,7 +200,7 @@ func newLintCommand(streams Streams) (glazecmds.Command, error) {
 	return &lintCommand{
 		CommandDescription: glazecmds.NewCommandDescription(
 			"lint",
-			glazecmds.WithShort("Lint YAML input without applying fixes"),
+			glazecmds.WithShort("Lint YAML or JSON input without applying fixes"),
 			glazecmds.WithArguments(
 				fields.New("input", fields.TypeString, fields.WithHelp("Optional input file path; reads stdin when omitted")),
 			),
@@ -284,7 +284,7 @@ func newRulesCommand(streams Streams) (glazecmds.Command, error) {
 	return &rulesCommand{
 		CommandDescription: glazecmds.NewCommandDescription(
 			"rules",
-			glazecmds.WithShort("List the available YAML lint and fix rules"),
+			glazecmds.WithShort("List the available YAML or JSON lint and fix rules"),
 			glazecmds.WithFlags(
 				fields.New("format", fields.TypeString, fields.WithDefault("yaml"), fields.WithHelp("Input format: yaml or json")),
 				fields.New("json", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Output rule metadata as JSON")),
@@ -418,11 +418,13 @@ func (c *parseCommand) Run(_ context.Context, vals *values.Values) error {
 			return newExitError(1, fmt.Errorf("error parsing input: %w", err))
 		}
 		result := struct {
-			TreeText string                   `json:"tree_text"`
-			Errors   []jsonsanitize.ErrorNode `json:"errors"`
+			TreeText         string                   `json:"tree_text"`
+			Errors           []jsonsanitize.ErrorNode `json:"errors"`
+			StrictParseClean bool                     `json:"strict_parse_clean"`
 		}{
-			TreeText: treeText,
-			Errors:   errors,
+			TreeText:         treeText,
+			Errors:           errors,
+			StrictParseClean: jsonsanitize.StrictParse(string(input)) == nil,
 		}
 		if settings.JSON {
 			enc := json.NewEncoder(c.streams.Stdout)
