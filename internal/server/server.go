@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/sanitize/examples"
+	jsonsanitize "github.com/go-go-golems/sanitize/pkg/json"
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
 
@@ -27,8 +28,19 @@ const (
 	idleTimeout         = 60 * time.Second
 )
 
-type yamlRequest struct {
-	YAML string `json:"yaml"`
+type analyzeRequest struct {
+	Format string `json:"format"`
+	Input  string `json:"input"`
+}
+
+type exampleResponse struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Input       string `json:"input"`
+	Category    string `json:"category,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Filename    string `json:"filename,omitempty"`
+	Format      string `json:"format"`
 }
 
 func Run(port int) error {
@@ -80,14 +92,49 @@ func New(port int) (*http.Server, error) {
 func examplesHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONHeaders(w)
 
-	// Merge built-in examples (concise demos) with file-based corpus.
-	var all []yamlsanitize.Example
+	var all []exampleResponse
 	for _, ex := range yamlsanitize.Examples {
-		ex.Source = "builtin"
-		ex.Category = "demo"
-		all = append(all, ex)
+		all = append(all, exampleResponse{
+			Name:        ex.Name,
+			Description: ex.Description,
+			Input:       ex.YAML,
+			Category:    "demo",
+			Source:      "builtin",
+			Format:      "yaml",
+		})
 	}
-	all = append(all, examples.LoadFileExamples()...)
+	for _, ex := range examples.LoadFileExamples() {
+		all = append(all, exampleResponse{
+			Name:        ex.Name,
+			Description: ex.Description,
+			Input:       ex.YAML,
+			Category:    ex.Category,
+			Source:      ex.Source,
+			Filename:    ex.Filename,
+			Format:      "yaml",
+		})
+	}
+	for _, ex := range jsonsanitize.Examples {
+		all = append(all, exampleResponse{
+			Name:        ex.Name,
+			Description: ex.Description,
+			Input:       ex.JSON,
+			Category:    "demo",
+			Source:      "builtin",
+			Format:      "json",
+		})
+	}
+	for _, ex := range examples.LoadJSONExamples() {
+		all = append(all, exampleResponse{
+			Name:        ex.Name,
+			Description: ex.Description,
+			Input:       ex.JSON,
+			Category:    ex.Category,
+			Source:      ex.Source,
+			Filename:    ex.Filename,
+			Format:      "json",
+		})
+	}
 
 	if err := json.NewEncoder(w).Encode(all); err != nil {
 		http.Error(w, "failed to encode examples", http.StatusInternalServerError)
@@ -109,16 +156,29 @@ func sanitizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req yamlRequest
+	var req analyzeRequest
 	if err := decodeJSONBody(w, r, &req); err != nil {
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result := yamlsanitize.Sanitize(req.YAML)
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		http.Error(w, "failed to encode sanitize result", http.StatusInternalServerError)
+	format, err := normalizeFormat(req.Format)
+	if err != nil {
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	switch format {
+	case "yaml":
+		if err := json.NewEncoder(w).Encode(yamlsanitize.Sanitize(req.Input)); err != nil {
+			http.Error(w, "failed to encode sanitize result", http.StatusInternalServerError)
+			return
+		}
+	case "json":
+		if err := json.NewEncoder(w).Encode(jsonsanitize.Sanitize(req.Input)); err != nil {
+			http.Error(w, "failed to encode sanitize result", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -130,23 +190,46 @@ func parseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req yamlRequest
+	var req analyzeRequest
 	if err := decodeJSONBody(w, r, &req); err != nil {
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	treeText, errors, err := yamlsanitize.ParseTree(req.YAML)
+	format, err := normalizeFormat(req.Format)
 	if err != nil {
-		http.Error(w, "parse error: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"tree_text": treeText,
-		"errors":    errors,
-	}); err != nil {
-		http.Error(w, "failed to encode parse result", http.StatusInternalServerError)
+	switch format {
+	case "yaml":
+		treeText, errors, err := yamlsanitize.ParseTree(req.Input)
+		if err != nil {
+			http.Error(w, "parse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"format":    "yaml",
+			"tree_text": treeText,
+			"errors":    errors,
+		}); err != nil {
+			http.Error(w, "failed to encode parse result", http.StatusInternalServerError)
+		}
+	case "json":
+		treeText, errors, err := jsonsanitize.ParseTree(req.Input)
+		if err != nil {
+			http.Error(w, "parse error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"format":             "json",
+			"tree_text":          treeText,
+			"errors":             errors,
+			"strict_parse_clean": jsonsanitize.StrictParse(req.Input) == nil,
+		}); err != nil {
+			http.Error(w, "failed to encode parse result", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -174,4 +257,15 @@ func validatePort(port int) error {
 		return fmt.Errorf("invalid port %d: out of range", port)
 	}
 	return nil
+}
+
+func normalizeFormat(format string) (string, error) {
+	switch format {
+	case "", "yaml":
+		return "yaml", nil
+	case "json":
+		return "json", nil
+	default:
+		return "", fmt.Errorf("unsupported format %q", format)
+	}
 }
