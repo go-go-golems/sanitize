@@ -32,6 +32,7 @@ This ticket investigates how `sanitize` should support malformed JSON commonly p
 - Design: [design-doc/01-json-support-outline-and-malformed-llm-json-error-taxonomy.md](./design-doc/01-json-support-outline-and-malformed-llm-json-error-taxonomy.md)
 - Common malformed cases: [reference/01-common-json-parse-errors-from-llm-output.md](./reference/01-common-json-parse-errors-from-llm-output.md)
 - Intern guide: [reference/02-intern-guide-to-json-support-and-tree-sitter-aware-malformed-json-recovery.md](./reference/02-intern-guide-to-json-support-and-tree-sitter-aware-malformed-json-recovery.md)
+- Diary: [reference/03-diary.md](./reference/03-diary.md)
 - Tree-sitter matrix: [sources/01-json-parse-error-replication-matrix.md](./sources/01-json-parse-error-replication-matrix.md)
 - Heuristic probe: [sources/02-json-heuristic-probe.md](./sources/02-json-heuristic-probe.md)
 
