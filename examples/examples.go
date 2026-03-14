@@ -55,8 +55,10 @@ func LoadFileExamples() []yamlsanitize.Example {
 
 // parseFilename converts "11-missing-space-after-colon.yaml" into
 // name="Missing space after colon", category="single-error".
-func parseFilename(filename string) (name, category string) {
+func parseFilename(filename string) (string, string) {
 	base := strings.TrimSuffix(filename, ".yaml")
+	name := ""
+	category := ""
 
 	// Split on first dash: "11-missing-space-after-colon" → "11", "missing-space-after-colon"
 	parts := strings.SplitN(base, "-", 2)
