@@ -27,6 +27,7 @@ var ruleCatalog = []RuleSpec{
 	{Name: "comment", Summary: "Comment syntax present in JSON input", Lints: true, Fixes: true, ParseAware: false, DefaultEnabled: true},
 	{Name: "missing_closing_delimiter", Summary: "Likely missing closing brace or bracket", Lints: true, Fixes: false, ParseAware: true, DefaultEnabled: true},
 	{Name: "duplicate_key", Summary: "Duplicate key within the same object", Lints: true, Fixes: false, ParseAware: false, DefaultEnabled: true},
+	{Name: "strict_parse_error", Summary: "encoding/json strict parse error surfaced as lint", Lints: true, Fixes: false, ParseAware: false, DefaultEnabled: true},
 	{Name: "structural_parse_error", Summary: "Tree-sitter structural parse error surfaced as lint", Lints: true, Fixes: false, ParseAware: true, DefaultEnabled: true},
 	{Name: "missing_syntax_node", Summary: "Tree-sitter missing syntax node surfaced as lint", Lints: true, Fixes: false, ParseAware: true, DefaultEnabled: true},
 }

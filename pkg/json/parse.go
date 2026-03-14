@@ -3,7 +3,6 @@ package jsonsanitize
 import (
 	"bytes"
 	stdjson "encoding/json"
-	"fmt"
 	"io"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
@@ -49,10 +48,18 @@ func strictParseBytes(content []byte) error {
 	case io.EOF:
 		return nil
 	case nil:
-		return fmt.Errorf("multiple top-level JSON values")
+		return multiValueError{Offset: dec.InputOffset()}
 	default:
 		return err
 	}
+}
+
+type multiValueError struct {
+	Offset int64
+}
+
+func (e multiValueError) Error() string {
+	return "multiple top-level JSON values"
 }
 
 // collectErrors walks the tree and gathers all ERROR and MISSING nodes.

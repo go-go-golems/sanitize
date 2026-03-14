@@ -76,3 +76,47 @@ func TestAnalyzeDocumentCapturesStrictParseErrorSeparately(t *testing.T) {
 		t.Fatal("expected tree-sitter parse errors for single-quoted JSON")
 	}
 }
+
+func TestLintWithOptionsReportsDuplicateKey(t *testing.T) {
+	issues, err := LintWithOptions(`{"a":1,"a":2}`)
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+
+	var found bool
+	for _, issue := range issues {
+		if issue.Rule == "duplicate_key" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected duplicate_key issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsStrictParseError(t *testing.T) {
+	issues, err := LintWithOptions(`{"a":1} {"b":2}`)
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+
+	var found bool
+	for _, issue := range issues {
+		if issue.Rule == "strict_parse_error" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected strict_parse_error issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsRuleFilter(t *testing.T) {
+	issues, err := LintWithOptions(`{"a":1,"a":2}`, WithOnlyRules("duplicate_key"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "duplicate_key" {
+		t.Fatalf("expected only duplicate_key, got %+v", issues)
+	}
+}

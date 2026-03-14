@@ -91,6 +91,19 @@ func (c config) validate() error {
 	return nil
 }
 
+func (c *config) ruleEnabled(rule string) bool {
+	if spec, ok := LookupRule(rule); ok {
+		if c.onlyRules != nil && !c.onlyRules[rule] {
+			return false
+		}
+		if c.disabledRules[rule] {
+			return false
+		}
+		return spec.DefaultEnabled
+	}
+	return false
+}
+
 func keys(m map[string]bool) []string {
 	ret := make([]string, 0, len(m))
 	for name := range m {
