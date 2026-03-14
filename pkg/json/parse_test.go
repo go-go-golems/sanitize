@@ -102,12 +102,12 @@ func TestLintWithOptionsReportsStrictParseError(t *testing.T) {
 
 	var found bool
 	for _, issue := range issues {
-		if issue.Rule == "strict_parse_error" {
+		if issue.Rule == "multiple_top_level_values" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("expected strict_parse_error issue, got %+v", issues)
+		t.Fatalf("expected multiple_top_level_values issue, got %+v", issues)
 	}
 }
 
@@ -118,5 +118,105 @@ func TestLintWithOptionsRuleFilter(t *testing.T) {
 	}
 	if len(issues) != 1 || issues[0].Rule != "duplicate_key" {
 		t.Fatalf("expected only duplicate_key, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsMarkdownFenceWrapper(t *testing.T) {
+	issues, err := LintWithOptions("```json\n{\"a\":1}\n```", WithOnlyRules("markdown_fence_wrapper"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "markdown_fence_wrapper" {
+		t.Fatalf("expected markdown_fence_wrapper issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsLeadingTrailingProse(t *testing.T) {
+	issues, err := LintWithOptions("Here is your JSON:\n{\"a\":1}\nThanks!", WithOnlyRules("leading_or_trailing_prose"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 2 {
+		t.Fatalf("expected two prose issues, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsSingleQuotes(t *testing.T) {
+	issues, err := LintWithOptions("{'a':'b'}", WithOnlyRules("single_quotes"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) == 0 {
+		t.Fatal("expected single_quotes issue")
+	}
+}
+
+func TestLintWithOptionsReportsUnquotedKeys(t *testing.T) {
+	issues, err := LintWithOptions("{a:\"b\"}", WithOnlyRules("unquoted_keys"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "unquoted_keys" {
+		t.Fatalf("expected unquoted_keys issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsPythonLiterals(t *testing.T) {
+	issues, err := LintWithOptions(`{"ok": True, "value": None}`, WithOnlyRules("python_literals"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 2 {
+		t.Fatalf("expected two python_literals issues, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsComment(t *testing.T) {
+	issues, err := LintWithOptions("{\"a\":1 // hi\n}", WithOnlyRules("comment"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "comment" {
+		t.Fatalf("expected comment issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsTrailingComma(t *testing.T) {
+	issues, err := LintWithOptions("{\"a\":1,}", WithOnlyRules("trailing_comma"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "trailing_comma" {
+		t.Fatalf("expected trailing_comma issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsDuplicateComma(t *testing.T) {
+	issues, err := LintWithOptions("{\"items\":[1,,2]}", WithOnlyRules("duplicate_comma"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "duplicate_comma" {
+		t.Fatalf("expected duplicate_comma issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsMissingClosingDelimiter(t *testing.T) {
+	issues, err := LintWithOptions("{\"a\":[1,2}", WithOnlyRules("missing_closing_delimiter"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Rule != "missing_closing_delimiter" {
+		t.Fatalf("expected missing_closing_delimiter issue, got %+v", issues)
+	}
+}
+
+func TestLintWithOptionsReportsEllipsisOrPlaceholder(t *testing.T) {
+	issues, err := LintWithOptions(`{"items":[1,2,...], "name":"<value>"}`, WithOnlyRules("ellipsis_or_placeholder"))
+	if err != nil {
+		t.Fatalf("LintWithOptions: %v", err)
+	}
+	if len(issues) != 2 {
+		t.Fatalf("expected two ellipsis_or_placeholder issues, got %+v", issues)
 	}
 }

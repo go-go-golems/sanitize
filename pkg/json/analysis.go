@@ -7,6 +7,7 @@ import (
 )
 
 type documentAnalysis struct {
+	Source           string
 	TreeText         string
 	ParseErrors      []ErrorNode
 	StrictParseError error
@@ -31,6 +32,7 @@ func analyzeDocument(src string) (documentAnalysis, error) {
 
 func analyzeParsedDocument(root *sitter.Node, content []byte) documentAnalysis {
 	return documentAnalysis{
+		Source:           string(content),
 		TreeText:         root.ToSexp(),
 		ParseErrors:      collectErrors(root, content),
 		StrictParseError: strictParseBytes(content),

@@ -32,6 +32,7 @@ func LintWithOptions(src string, opts ...Option) ([]LintIssue, error) {
 func lintIssuesFromAnalysis(doc documentAnalysis, cfg *config) []LintIssue {
 	issues := lintFromParseErrors(doc.ParseErrors, cfg)
 	issues = append(issues, lintFromStrictParseError(doc, cfg)...)
+	issues = append(issues, lintFromHeuristics(doc.Source, doc, cfg)...)
 	issues = append(issues, lintFromDuplicateKeys(doc, cfg)...)
 	return issues
 }
@@ -72,14 +73,36 @@ func lintFromParseErrors(errors []ErrorNode, cfg *config) []LintIssue {
 }
 
 func lintFromStrictParseError(doc documentAnalysis, cfg *config) []LintIssue {
-	if doc.StrictParseError == nil || !cfg.ruleEnabled("strict_parse_error") {
+	if doc.StrictParseError == nil {
+		return nil
+	}
+
+	var multiErr multiValueError
+	if errors.As(doc.StrictParseError, &multiErr) && cfg.ruleEnabled("multiple_top_level_values") {
+		startByte, endByte := strictParseIssueSpan(doc)
+		startRow, startCol := doc.LineIndex.rowColAtByte(startByte)
+		endRow, endCol := doc.LineIndex.rowColAtByte(endByte)
+		return []LintIssue{{
+			Rule:        "multiple_top_level_values",
+			Source:      "strict-parser",
+			Description: fmt.Sprintf("Line %d: multiple top-level JSON values appear in one input", startRow+1),
+			StartByte:   startByte,
+			EndByte:     endByte,
+			StartRow:    uint(startRow),
+			StartCol:    uint(startCol),
+			EndRow:      uint(endRow),
+			EndCol:      uint(endCol),
+			Row:         startRow,
+		}}
+	}
+
+	if len(doc.ParseErrors) > 0 || !cfg.ruleEnabled("strict_parse_error") {
 		return nil
 	}
 
 	startByte, endByte := strictParseIssueSpan(doc)
 	startRow, startCol := doc.LineIndex.rowColAtByte(startByte)
 	endRow, endCol := doc.LineIndex.rowColAtByte(endByte)
-
 	return []LintIssue{{
 		Rule:        "strict_parse_error",
 		Source:      "strict-parser",
@@ -123,25 +146,14 @@ func strictParseIssueSpan(doc documentAnalysis) (uint, uint) {
 	var syntaxErr *stdjson.SyntaxError
 	if errors.As(doc.StrictParseError, &syntaxErr) && syntaxErr.Offset > 0 {
 		start := uint(syntaxErr.Offset - 1)
-		return start, clampByte(start+1, doc.LineIndex)
+		return start, start + 1
 	}
 
 	var multiErr multiValueError
 	if errors.As(doc.StrictParseError, &multiErr) && multiErr.Offset > 0 {
 		start := uint(multiErr.Offset - 1)
-		return start, clampByte(start+1, doc.LineIndex)
+		return start, start + 1
 	}
 
 	return 0, 0
-}
-
-func clampByte(offset uint, li lineIndex) uint {
-	if len(li.starts) == 0 {
-		return offset
-	}
-	lastStart := li.starts[len(li.starts)-1]
-	if int(offset) < lastStart {
-		return offset
-	}
-	return offset
 }

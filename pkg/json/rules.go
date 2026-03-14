@@ -24,6 +24,8 @@ var ruleCatalog = []RuleSpec{
 	{Name: "python_literals", Summary: "Python-style literals such as True, False, and None", Lints: true, Fixes: true, ParseAware: false, DefaultEnabled: true},
 	{Name: "trailing_comma", Summary: "Trailing comma in an object or array", Lints: true, Fixes: true, ParseAware: true, DefaultEnabled: true},
 	{Name: "duplicate_comma", Summary: "Duplicate comma in an array or object member list", Lints: true, Fixes: true, ParseAware: false, DefaultEnabled: true},
+	{Name: "multiple_top_level_values", Summary: "Multiple top-level JSON values appear in one input", Lints: true, Fixes: false, ParseAware: false, DefaultEnabled: true},
+	{Name: "ellipsis_or_placeholder", Summary: "Ellipsis or placeholder token appears in the JSON input", Lints: true, Fixes: false, ParseAware: false, DefaultEnabled: true},
 	{Name: "comment", Summary: "Comment syntax present in JSON input", Lints: true, Fixes: true, ParseAware: false, DefaultEnabled: true},
 	{Name: "missing_closing_delimiter", Summary: "Likely missing closing brace or bracket", Lints: true, Fixes: false, ParseAware: true, DefaultEnabled: true},
 	{Name: "duplicate_key", Summary: "Duplicate key within the same object", Lints: true, Fixes: false, ParseAware: false, DefaultEnabled: true},
