@@ -12,6 +12,8 @@
   --info:       #2980b9;
   --fix-bg:     #fef9f0;
   --fix-border: #e8c97a;
+  --yaml:       #0b7285;
+  --json:       #b25c00;
   --mono:       "JetBrains Mono", "Fira Mono", "Consolas", monospace;
   --sans:       "Inter", "Helvetica Neue", Arial, sans-serif;
   --radius:     3px;
@@ -31,8 +33,8 @@ header h1 { font-size: 14px; font-weight: 700; letter-spacing: .05em; text-trans
 header .sub { font-size: 11px; color: var(--muted); }
 header .grammar-tag {
   margin-left: auto; font-size: 11px; font-family: var(--mono);
-  color: var(--info); background: #eaf4fc; padding: 2px 7px;
-  border-radius: 2px; border: 1px solid #b8d8f0;
+  color: var(--info); background: linear-gradient(120deg, #eaf4fc, #fff7e6);
+  padding: 2px 7px; border-radius: 2px; border: 1px solid #b8d8f0;
 }
 
 .toolbar {
@@ -45,9 +47,18 @@ header .grammar-tag {
   font-family: var(--sans); font-size: 13px; padding: 4px 8px;
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--bg); color: var(--accent); cursor: pointer;
-  flex: 1; min-width: 180px; max-width: 400px;
+  min-width: 140px;
 }
+.toolbar #example-select { flex: 1; max-width: 420px; }
 .toolbar select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.meta-pill {
+  font-size: 10px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  background: #eceae4; color: var(--muted); border: 1px solid var(--border);
+}
+.meta-pill.format-yaml { color: var(--yaml); border-color: #a8d7de; background: #edf9fb; }
+.meta-pill.format-json { color: var(--json); border-color: #f2d39d; background: #fff5e7; }
 
 .status-badge {
   margin-left: auto; font-size: 11px; font-weight: 600;
@@ -80,6 +91,8 @@ header .grammar-tag {
 .badge.has-errors { background: #fde8e8; color: var(--error); }
 .badge.no-errors  { background: #d4edda; color: var(--ok); }
 .badge.has-lint   { background: #fff3cd; color: var(--warn); }
+.badge.badge-format { background: #eef1f4; color: #45525f; }
+.badge.badge-quiet { background: #eef1f4; color: #5e6b76; }
 
 .panel-body { flex: 1; overflow: auto; position: relative; }
 
@@ -100,6 +113,7 @@ header .grammar-tag {
 .tn-node    { color: #2c7bb6; }
 .tn-field   { color: #7b5ea7; }
 .tn-paren   { color: #aaa; }
+.tn-string  { color: #888; font-style: italic; }
 
 .issues-section {
   border-top: 1px solid var(--border); background: #fff8f8;
@@ -128,6 +142,7 @@ header .grammar-tag {
 .type-tag.error   { background: #fde8e8; color: var(--error); }
 .type-tag.missing { background: #fff3cd; color: var(--warn); }
 .type-tag.lint    { background: #e8f4fd; color: var(--info); }
+.lint-rule { background: #e8f4fd; color: #1a6ea8; }
 
 .sanitized-panel-body { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 #sanitized-output {
@@ -192,4 +207,8 @@ header .grammar-tag {
   .panels { grid-template-columns: 1fr; overflow: auto; }
   .panel { border-right: none; border-bottom: 1px solid var(--border); min-height: 300px; max-height: 60vh; }
   .panel:last-child { border-bottom: none; }
+  .toolbar { align-items: stretch; }
+  .toolbar label { width: 100%; }
+  .toolbar select, .toolbar #example-select { max-width: none; width: 100%; }
+  .meta-pill, .status-badge { margin-left: 0; }
 }

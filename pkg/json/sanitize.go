@@ -6,11 +6,12 @@ func Sanitize(src string, opts ...Option) Result {
 	result, err := SanitizeWithOptions(src, opts...)
 	if err != nil {
 		return Result{
-			Original:         src,
-			Sanitized:        src,
-			ParseClean:       false,
-			LintClean:        false,
-			StrictParseClean: false,
+			Original:                 src,
+			Sanitized:                src,
+			ParseClean:               false,
+			LintClean:                false,
+			StrictParseClean:         false,
+			OriginalStrictParseClean: false,
 		}
 	}
 	return result
@@ -32,10 +33,12 @@ func sanitizeWithConfig(src string, cfg config) Result {
 	origDoc, origErr := analyzeDocument(original)
 	origTreeText, origErrors := "", []ErrorNode(nil)
 	origLintIssues := []LintIssue(nil)
+	origStrictClean := false
 	if origErr == nil {
 		origTreeText = origDoc.TreeText
 		origErrors = origDoc.ParseErrors
 		origLintIssues = lintIssuesFromAnalysis(origDoc, &cfg)
+		origStrictClean = origDoc.StrictParseError == nil
 	} else {
 		origTreeText, origErrors, _ = ParseTree(original)
 		origLintIssues = Lint(original)
@@ -50,34 +53,35 @@ func sanitizeWithConfig(src string, cfg config) Result {
 		lintIssues := lintIssuesFromAnalysis(doc, &cfg)
 		if len(doc.ParseErrors) == 0 && len(lintIssues) == 0 && doc.StrictParseError == nil {
 			return Result{
-				Original:           original,
-				Sanitized:          src,
-				TreeText:           doc.TreeText,
-				OriginalTreeText:   origTreeText,
-				Errors:             doc.ParseErrors,
-				OriginalErrors:     origErrors,
-				LintIssues:         lintIssues,
-				OriginalLintIssues: origLintIssues,
-				Fixes:              allFixes,
-				ParseClean:         true,
-				LintClean:          true,
-				StrictParseClean:   true,
+				Original:                 original,
+				Sanitized:                src,
+				TreeText:                 doc.TreeText,
+				OriginalTreeText:         origTreeText,
+				Errors:                   doc.ParseErrors,
+				OriginalErrors:           origErrors,
+				LintIssues:               lintIssues,
+				OriginalLintIssues:       origLintIssues,
+				Fixes:                    allFixes,
+				ParseClean:               true,
+				LintClean:                true,
+				StrictParseClean:         true,
+				OriginalStrictParseClean: origStrictClean,
 			}
 		}
 
 		fixed, fixes := applyFixes(src, doc, &cfg)
 		if len(fixes) == 0 || fixed == src {
-			return finalizeResult(original, src, origTreeText, origErrors, origLintIssues, allFixes, cfg)
+			return finalizeResult(original, src, origTreeText, origErrors, origLintIssues, allFixes, origStrictClean, cfg)
 		}
 
 		allFixes = append(allFixes, fixes...)
 		src = fixed
 	}
 
-	return finalizeResult(original, src, origTreeText, origErrors, origLintIssues, allFixes, cfg)
+	return finalizeResult(original, src, origTreeText, origErrors, origLintIssues, allFixes, origStrictClean, cfg)
 }
 
-func finalizeResult(original, current, origTreeText string, origErrors []ErrorNode, origLintIssues []LintIssue, fixes []Fix, cfg config) Result {
+func finalizeResult(original, current, origTreeText string, origErrors []ErrorNode, origLintIssues []LintIssue, fixes []Fix, origStrictClean bool, cfg config) Result {
 	doc, err := analyzeDocument(current)
 	treeText, errors, lintIssues := "", []ErrorNode(nil), []LintIssue(nil)
 	parseClean, strictClean := false, false
@@ -93,17 +97,18 @@ func finalizeResult(original, current, origTreeText string, origErrors []ErrorNo
 	}
 
 	return Result{
-		Original:           original,
-		Sanitized:          current,
-		TreeText:           treeText,
-		OriginalTreeText:   origTreeText,
-		Errors:             errors,
-		OriginalErrors:     origErrors,
-		LintIssues:         lintIssues,
-		OriginalLintIssues: origLintIssues,
-		Fixes:              fixes,
-		ParseClean:         parseClean,
-		LintClean:          len(lintIssues) == 0,
-		StrictParseClean:   strictClean,
+		Original:                 original,
+		Sanitized:                current,
+		TreeText:                 treeText,
+		OriginalTreeText:         origTreeText,
+		Errors:                   errors,
+		OriginalErrors:           origErrors,
+		LintIssues:               lintIssues,
+		OriginalLintIssues:       origLintIssues,
+		Fixes:                    fixes,
+		ParseClean:               parseClean,
+		LintClean:                len(lintIssues) == 0,
+		StrictParseClean:         strictClean,
+		OriginalStrictParseClean: origStrictClean,
 	}
 }

@@ -38,18 +38,19 @@ type Fix struct {
 
 // Result is the full output of a JSON sanitize pass.
 type Result struct {
-	Original           string      `json:"original"`
-	Sanitized          string      `json:"sanitized"`
-	TreeText           string      `json:"tree_text"`
-	OriginalTreeText   string      `json:"original_tree_text"`
-	Errors             []ErrorNode `json:"errors"`
-	OriginalErrors     []ErrorNode `json:"original_errors"`
-	LintIssues         []LintIssue `json:"lint_issues"`
-	OriginalLintIssues []LintIssue `json:"original_lint_issues"`
-	Fixes              []Fix       `json:"fixes"`
-	ParseClean         bool        `json:"parse_clean"`
-	LintClean          bool        `json:"lint_clean"`
-	StrictParseClean   bool        `json:"strict_parse_clean"`
+	Original                 string      `json:"original"`
+	Sanitized                string      `json:"sanitized"`
+	TreeText                 string      `json:"tree_text"`
+	OriginalTreeText         string      `json:"original_tree_text"`
+	Errors                   []ErrorNode `json:"errors"`
+	OriginalErrors           []ErrorNode `json:"original_errors"`
+	LintIssues               []LintIssue `json:"lint_issues"`
+	OriginalLintIssues       []LintIssue `json:"original_lint_issues"`
+	Fixes                    []Fix       `json:"fixes"`
+	ParseClean               bool        `json:"parse_clean"`
+	LintClean                bool        `json:"lint_clean"`
+	StrictParseClean         bool        `json:"strict_parse_clean"`
+	OriginalStrictParseClean bool        `json:"original_strict_parse_clean"`
 }
 
 // Example is a named JSON snippet with a description of the error it contains.

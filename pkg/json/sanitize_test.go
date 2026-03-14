@@ -13,6 +13,9 @@ func TestSanitizeWithOptions_StripsFenceAndNormalizesLiteralAndComma(t *testing.
 	if result.Sanitized != "{\"ok\": true}\n" {
 		t.Fatalf("unexpected sanitized output:\n%s", result.Sanitized)
 	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
+	}
 	if !result.ParseClean || !result.StrictParseClean {
 		t.Fatalf("expected parse clean result, got %+v", result)
 	}
@@ -47,6 +50,9 @@ func TestSanitizeWithOptions_ExtractsJSONFromProse(t *testing.T) {
 
 	if result.Sanitized != "{\"name\":\"Alice\"}\n" {
 		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
 	}
 	if !result.StrictParseClean {
 		t.Fatalf("expected strict parse clean result, got %+v", result)
