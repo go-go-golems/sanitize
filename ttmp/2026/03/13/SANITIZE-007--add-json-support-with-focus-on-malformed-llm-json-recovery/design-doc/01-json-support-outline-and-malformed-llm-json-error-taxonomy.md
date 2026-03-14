@@ -106,7 +106,26 @@ Possibly useful as an implementation aid, but not sufficient by itself because s
 3. Define the JSON issue/fix model.
 4. Add example fixtures for common malformed LLM output.
 5. Implement JSON parse/lint/fix in `pkg/json`.
-6. Wire JSON into the CLI and API surfaces.
+6. Wire JSON into the CLI surface with explicit format selection.
+7. Replace the YAML-only HTTP request contract with a format-aware API contract.
+8. Extend the embedded browser UI into a format-aware playground with JSON parse and recovery views.
+
+### Server and browser implications
+
+The repository already has an embedded HTTP server and single-page web UI. JSON support should therefore be planned as a full product-surface feature, not only a package feature.
+
+The existing UI in [internal/server/static/index.html](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/index.html) and [internal/server/static/js/app.js](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/js/app.js) is currently YAML-specific. The JSON implementation plan should explicitly include:
+
+- a format selector in the UI,
+- format-aware examples from `/api/examples`,
+- a format-aware request body such as `{ "format": "json", "input": "..." }`,
+- a JSON parse playground mode that exposes:
+  - tree-sitter parse tree,
+  - strict parser success/failure,
+  - heuristic lint findings,
+  - applied fixes and repaired output.
+
+The UI should remain shared between YAML and JSON. The goal is one playground with two formats, not two separate browser apps.
 
 ## Open Questions
 
