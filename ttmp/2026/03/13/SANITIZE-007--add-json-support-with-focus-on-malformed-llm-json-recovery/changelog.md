@@ -113,3 +113,59 @@ Extended the Glazed CLI so `parse`, `lint`, and `rules` can operate on JSON via 
 
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go — Format-aware CLI dispatch for YAML and JSON
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/cmd/sanitize/main_test.go — CLI coverage for JSON parse/lint/rules and JSON fix not implemented
+
+
+## 2026-03-13
+
+Added conservative JSON fixers and made `sanitize fix --format json` a real recovery flow (commit `9a6ead6`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/fix.go — Conservative JSON fixers for wrappers, literals, comments, and commas
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize.go — Iterative JSON sanitize flow
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize_test.go — JSON sanitize coverage
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go — JSON fix command wiring
+
+
+## 2026-03-13
+
+Generalized the HTTP API to accept format-aware JSON and YAML requests (commit `aa66e7a`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server.go — Format-aware request contract and dispatch
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server_test.go — JSON sanitize/parse/examples coverage
+
+
+## 2026-03-13
+
+Converted the embedded browser app into a shared YAML/JSON recovery playground and exposed original strict-parse JSON state (commit `e1e7fd7`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/index.html — Format-aware playground shell
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/js/app.js — Format-aware browser state and JSON recovery rendering
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/css/style.css — Updated toolbar, badges, and responsive styling
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/types.go — `OriginalStrictParseClean` result field
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize.go — Original strict-parse state propagation
+
+
+## 2026-03-13
+
+Expanded the JSON corpus, added reporting scripts, and refreshed the public docs/help text (commit `f789c7b`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/24-llm-wrapper-multi-step.json — Combined malformed LLM-style recovery case
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/25-llm-commentary-comments-and-duplicate-comma.json — Combined malformed LLM-style recovery case
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/README.md — YAML+JSON public documentation
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server_test.go — Static UI contract coverage
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-example-metadata/main.go — UI metadata export script
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-detection-buckets/main.go — Parser/heuristic/hybrid classification script
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-repair-matrix/main.go — Recovery matrix generator
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-rule-matrix/main.go — Machine-readable rule matrix generator
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-overlap-study/main.go — Heuristic span overlap study
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/04-json-detection-buckets.md — Generated detection-bucket report
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/05-json-repair-matrix.md — Generated repair matrix
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/06-json-rule-matrix.json — Generated machine-readable rule matrix
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/07-json-overlap-study.md — Generated heuristic overlap report

@@ -40,9 +40,9 @@ RelatedFiles:
       Note: Generated evidence showing heuristic-detectable malformed cases
 ExternalSources: []
 Summary: Detailed intern-oriented guide for understanding the current sanitize architecture and implementing JSON support focused on malformed LLM-generated JSON.
-LastUpdated: 2026-03-13T20:05:00-04:00
-WhatFor: Explain the current system, the JSON research performed so far, and a concrete implementation path for a new contributor.
-WhenToUse: Use when onboarding to SANITIZE-007 or when implementing pkg/json, JSON lint rules, fixers, and CLI integration.
+LastUpdated: 2026-03-13T23:45:00-04:00
+WhatFor: Explain the current system, the JSON implementation that shipped in SANITIZE-007, and the remaining conservative boundaries for a new contributor.
+WhenToUse: Use when onboarding to SANITIZE-007 or when extending pkg/json, the JSON playground, or the experiment/reporting scripts.
 ---
 
 # Intern guide to JSON support and tree-sitter-aware malformed JSON recovery
@@ -60,7 +60,7 @@ This guide explains the current `sanitize` system and how to extend it with JSON
 
 ## Context
 
-The repository started as a YAML sanitizer and now has a more structured internal architecture. The current production code is still YAML-only, but `SANITIZE-007` adds research artifacts for JSON support.
+The repository started as a YAML sanitizer and now supports both YAML and JSON. `SANITIZE-007` is the ticket that added first-release JSON support with a deliberately conservative repair boundary and a full stack of supporting evidence documents and scripts.
 
 The important context is that the project is not just a parser wrapper. It tries to do three related jobs:
 
@@ -68,13 +68,15 @@ The important context is that the project is not just a parser wrapper. It tries
 - explain what is wrong in a way that is useful to users,
 - and repair a subset of common issues conservatively.
 
-For YAML, the project already has:
+Today the project has:
 
 - a shared analysis path,
 - a lint issue model,
 - a fix model,
 - iterative sanitize behavior,
-- and a Glazed-based CLI.
+- a Glazed-based CLI,
+- a format-aware HTTP API,
+- and a shared YAML/JSON browser playground.
 
 For JSON, the ticket research shows that strict parsing plus tree-sitter plus heuristics is likely the right blend. Strict parsing alone is too brittle for LLM-generated output, but heuristics alone are too weak for structural localization.
 
@@ -117,9 +119,44 @@ Result object returned to caller
 - Imported malformed case list: [03-json-parse-errors-import.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/local/03-json-parse-errors-import.md)
 - Tree-sitter replication matrix: [01-json-parse-error-replication-matrix.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/01-json-parse-error-replication-matrix.md)
 - Heuristic probe: [02-json-heuristic-probe.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/02-json-heuristic-probe.md)
+- Example metadata: [03-json-example-metadata.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/03-json-example-metadata.json)
+- Detection buckets: [04-json-detection-buckets.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/04-json-detection-buckets.md)
+- Repair matrix: [05-json-repair-matrix.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/05-json-repair-matrix.md)
+- Rule matrix: [06-json-rule-matrix.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/06-json-rule-matrix.json)
+- Overlap study: [07-json-overlap-study.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources/07-json-overlap-study.md)
 - Standalone parse inspector: [json-tree-sitter-parse/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-tree-sitter-parse/main.go)
 - Case matrix generator: [json-error-matrix/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-error-matrix/main.go)
 - Heuristic probe generator: [json-heuristic-probe/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-heuristic-probe/main.go)
+- Example metadata exporter: [json-example-metadata/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-example-metadata/main.go)
+- Detection bucket generator: [json-detection-buckets/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-detection-buckets/main.go)
+- Repair matrix generator: [json-repair-matrix/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-repair-matrix/main.go)
+- Rule matrix generator: [json-rule-matrix/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-rule-matrix/main.go)
+- Overlap study generator: [json-overlap-study/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-overlap-study/main.go)
+
+## Current shipped JSON boundary
+
+The first-release JSON engine is intentionally conservative.
+
+It auto-fixes:
+
+- Markdown fence wrappers
+- leading or trailing prose wrappers
+- Python literals such as `True`, `False`, and `None`
+- comments
+- duplicate commas
+- trailing commas
+
+It lints but does not auto-fix:
+
+- single quotes
+- unquoted keys
+- missing commas
+- missing colons
+- missing closing delimiters
+- multiple top-level values
+- duplicate keys
+
+That means the right mental model is "recovery for low-ambiguity LLM noise, lint for ambiguous structural repair."
 
 ## What the system is
 
@@ -512,9 +549,7 @@ This is probably the simplest first step because it fits the existing `lint`, `f
 
 ### JSON-specific parse inspection
 
-The ticket already includes a standalone parse inspector in [json-tree-sitter-parse/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-tree-sitter-parse/main.go). That should likely become a real CLI mode eventually.
-
-Suggested future CLI:
+The ticket already includes a standalone parse inspector in [json-tree-sitter-parse/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-tree-sitter-parse/main.go), and the shipped CLI now exposes JSON parse inspection directly:
 
 ```text
 sanitize parse --format json
@@ -525,7 +560,7 @@ sanitize rules --format json
 
 ## Current server and browser UI architecture
 
-The repository already contains a browser-facing playground. This matters because JSON support is not only a package and CLI concern. There is an existing HTTP server and embedded single-page application that currently assumes every document is YAML. If you forget that surface, the project will ship with a split personality: CLI supports JSON but the browser still says "Input YAML" everywhere.
+The repository already contains a browser-facing playground. This matters because JSON support is not only a package and CLI concern. `SANITIZE-007` now brings the server and browser along with the package and CLI, so the product no longer has a split personality.
 
 The current server lives in [server.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server.go). It serves static assets and exposes three routes:
 
@@ -533,15 +568,16 @@ The current server lives in [server.go](/home/manuel/code/wesen/2026-03-05--yaml
 - `POST /api/sanitize`
 - `POST /api/parse`
 
-Right now the request model is YAML-specific:
+The shipped request model is now format-aware:
 
 ```go
-type yamlRequest struct {
-    YAML string `json:"yaml"`
+type analyzeRequest struct {
+    Format string `json:"format"`
+    Input  string `json:"input"`
 }
 ```
 
-That is the first thing that must change for JSON mode. The server contract needs to become format-aware so the browser and CLI are not forced to invent parallel special cases.
+That change matters because the browser, tests, and any future API clients can now speak the same contract for both formats.
 
 ### How the browser works today
 
@@ -556,7 +592,7 @@ Example dropdown or textarea input
 debounced triggerAnalysis()
    |
    v
-POST /api/sanitize with { yaml: src }
+POST /api/sanitize with { format, input }
    |
    v
 renderResult(data)
@@ -568,7 +604,13 @@ renderResult(data)
    +--> applied fixes list
 ```
 
-That architecture is already close to what JSON needs. The main problem is not that the UI is fundamentally wrong. The problem is that the state model and labels are YAML-specialized.
+That architecture turned out to be close to what JSON needed. The important changes were:
+
+- add a format selector
+- filter examples by format
+- expose original strict-parse state for JSON
+- rename the app into format-neutral language
+- keep original/sanitized tree toggling identical across formats
 
 ### Existing browser invariants you should preserve
 
@@ -580,9 +622,9 @@ That architecture is already close to what JSON needs. The main problem is not t
 
 JSON mode should preserve those interaction patterns because they are already coherent.
 
-## Proposed format-aware HTTP contract
+## Format-aware HTTP contract
 
-The simplest clean request model is:
+The shipped clean request model is:
 
 ```json
 {
@@ -600,9 +642,9 @@ and for JSON:
 }
 ```
 
-The response should be structurally similar across formats. That does not require YAML and JSON to share the same internal package, but it does require the server to normalize the result shape enough that the browser does not need entirely separate rendering stacks.
+The response is structurally similar across formats. That does not require YAML and JSON to share the same internal package, but it does require the server to normalize the result shape enough that the browser does not need entirely separate rendering stacks.
 
-### Suggested server request and dispatch pseudocode
+### Server request and dispatch pseudocode
 
 ```go
 type analyzeRequest struct {
@@ -629,9 +671,9 @@ func sanitizeHandler(w http.ResponseWriter, r *http.Request) {
 
 If the server keeps a YAML-shaped request body like `{ "yaml": "..." }`, then every client ends up doing awkward remapping. The browser cannot easily support multiple formats cleanly, and tests become harder to read. A format-aware request body lets the same browser action dispatch to YAML or JSON without branching all over the rendering logic.
 
-## Proposed JSON parse playground in the browser UI
+## JSON parse playground in the browser UI
 
-The JSON work should include a real parse playground mode in the embedded browser app. This is not a decorative addition. It is one of the best ways to inspect malformed LLM JSON and verify whether tree-sitter spans and lint rules line up with user expectations.
+The JSON work now includes a real parse playground mode in the embedded browser app. This is not a decorative addition. It is one of the best ways to inspect malformed LLM JSON and verify whether tree-sitter spans and lint rules line up with user expectations.
 
 ### Product goal for the playground
 
@@ -652,44 +694,33 @@ and immediately see:
 - which recovery fixes were applied,
 - and whether the sanitized result is now strict valid JSON.
 
-### UI elements to add or rename
+### UI elements that shipped
 
-The current `index.html` can evolve rather than be replaced. The smallest coherent change is:
+The current `index.html` evolved rather than being replaced. The main shipped changes are:
 
-- rename the application from "YAML Sanitizer" to format-neutral branding such as `sanitize playground`
+- rename the application to `Sanitize Playground`
 - add a format picker next to the example picker
 - make the example picker format-aware
-- rename "Input YAML" to `Input`
-- rename "Sanitized YAML" to `Sanitized Output`
-- add a small strict-parse status indicator in the parse panel for JSON mode
+- keep format-specific panel labels such as `Input YAML` and `Input JSON`
+- add a strict-parse status indicator in the parse panel for JSON mode
 
-### Suggested toolbar layout
+### Toolbar layout
 
 ```text
 [Format: YAML | JSON] [Example dropdown filtered by format] [status badge] [spinner]
 ```
 
-### Suggested panel behavior in JSON mode
+### Panel behavior in JSON mode
 
-- Input panel:
-  - placeholder should mention malformed LLM JSON examples
-  - example picker should load JSON fixtures only when JSON is selected
-- Parse tree panel:
-  - show tree-sitter parse tree as today
-  - show strict JSON parse status separately from tree-sitter error count
-  - preserve original/sanitized toggle
-- Issues panel:
-  - group issues by source when possible:
-    - tree-sitter parse
-    - strict parser
-    - heuristic lint
-- Sanitized output panel:
-  - continue showing final text plus applied fixes
-  - add a small "strict valid JSON" badge when applicable
+- Input panel mentions malformed or prose-wrapped JSON in the placeholder.
+- Example picker loads JSON fixtures only when JSON is selected.
+- Parse tree panel shows tree-sitter errors and strict JSON status separately.
+- Issues panel distinguishes parse, strict-parser, and heuristic signals.
+- Sanitized output panel shows final text plus applied fixes and final strict-clean state.
 
-### Suggested browser-state model
+### Browser-state model
 
-Today `app.js` keeps a small implicit state through globals like `lastResult` and `showingOriginalTree`. JSON mode should make that state slightly more explicit.
+The current [app.js](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/js/app.js) still uses lightweight globals, but JSON mode added explicit format state and format-filtered example behavior.
 
 ```js
 const state = {
@@ -704,7 +735,7 @@ const state = {
 };
 ```
 
-### Suggested browser analysis pseudocode
+### Browser analysis pseudocode
 
 ```js
 async function triggerAnalysis() {
@@ -727,7 +758,7 @@ async function triggerAnalysis() {
 }
 ```
 
-### Suggested `renderResult` contract
+### `renderResult` contract
 
 The browser should avoid format-specific rendering branches except for labels and a few JSON-only badges. Aim for a common result interface like:
 
@@ -748,7 +779,7 @@ The browser should avoid format-specific rendering branches except for labels an
 }
 ```
 
-This does not mean YAML must suddenly expose `strict_parse_clean`. It means the server or browser may need a normalized optional field for JSON mode.
+JSON now exposes both `strict_parse_clean` and `original_strict_parse_clean`. YAML does not need to grow those fields; the browser treats them as JSON-only optional state.
 
 ### Suggested UI diagram
 

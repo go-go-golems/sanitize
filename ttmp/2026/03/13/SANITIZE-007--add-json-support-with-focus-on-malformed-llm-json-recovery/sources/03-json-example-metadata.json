@@ -1,0 +1,228 @@
+[
+  {
+    "name": "Leading prose",
+    "description": "Helpful prose appears before the JSON payload.",
+    "input": "Here is your JSON:\n{\"name\":\"Alice\"}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "leading_or_trailing_prose"
+  },
+  {
+    "name": "Markdown fence wrapper",
+    "description": "The JSON payload is wrapped in a Markdown code fence.",
+    "input": "```json\n{\"name\":\"Alice\"}\n```\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "markdown_fence_wrapper"
+  },
+  {
+    "name": "Multiple top-level values",
+    "description": "Two top-level JSON objects appear back to back.",
+    "input": "{\"a\":1} {\"b\":2}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "multiple_top_level_values"
+  },
+  {
+    "name": "Python literals",
+    "description": "Python-style literals appear in place of JSON literals.",
+    "input": "{\"ok\": True, \"value\": None}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "python_literals"
+  },
+  {
+    "name": "Single quotes",
+    "description": "Single quotes are used where JSON requires double quotes.",
+    "input": "{'name': 'Alice'}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "single_quotes"
+  },
+  {
+    "name": "Trailing comma",
+    "description": "A trailing comma appears after the last object member.",
+    "input": "{\"name\":\"Alice\",}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "trailing_comma"
+  },
+  {
+    "name": "Unquoted keys",
+    "description": "Object keys are not quoted JSON strings.",
+    "input": "{name: \"Alice\", age: 30}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "unquoted_keys"
+  },
+  {
+    "name": "Valid JSON",
+    "description": "A well-formed JSON document with no parse errors.",
+    "input": "{\"name\":\"Alice\",\"age\":30,\"tags\":[\"ops\",\"infra\"]}\n",
+    "category": "demo",
+    "source": "builtin",
+    "pattern": "valid"
+  },
+  {
+    "name": "Valid basic",
+    "description": "",
+    "input": "{\"name\":\"Alice\",\"age\":30}\n",
+    "category": "valid",
+    "source": "file",
+    "filename": "00-valid-basic.json",
+    "pattern": "valid_basic"
+  },
+  {
+    "name": "Valid nested objects",
+    "description": "",
+    "input": "{\"user\":{\"name\":\"Alice\",\"roles\":[\"admin\",\"operator\"]},\"active\":true}\n",
+    "category": "valid",
+    "source": "file",
+    "filename": "01-valid-nested-objects.json",
+    "pattern": "valid_nested_objects"
+  },
+  {
+    "name": "Trailing comma object",
+    "description": "",
+    "input": "{\"name\":\"Alice\",\"age\":30,}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "10-trailing-comma-object.json",
+    "pattern": "trailing_comma"
+  },
+  {
+    "name": "Single quotes",
+    "description": "",
+    "input": "{'name':'Alice','age':30}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "11-single-quotes.json",
+    "pattern": "single_quotes"
+  },
+  {
+    "name": "Unquoted keys",
+    "description": "",
+    "input": "{name:\"Alice\",age:30}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "12-unquoted-keys.json",
+    "pattern": "unquoted_keys"
+  },
+  {
+    "name": "Missing comma",
+    "description": "",
+    "input": "{\"name\":\"Alice\" \"age\":30}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "13-missing-comma.json",
+    "pattern": "missing_comma"
+  },
+  {
+    "name": "Missing colon",
+    "description": "",
+    "input": "{\"name\" \"Alice\"}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "14-missing-colon.json",
+    "pattern": "missing_colon"
+  },
+  {
+    "name": "Leading prose wrapper",
+    "description": "",
+    "input": "Here is your JSON:\n{\"name\":\"Alice\",\"age\":30}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "15-leading-prose-wrapper.json",
+    "pattern": "leading_or_trailing_prose"
+  },
+  {
+    "name": "Markdown fence wrapper",
+    "description": "",
+    "input": "```json\n{\"name\":\"Alice\",\"age\":30}\n```\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "16-markdown-fence-wrapper.json",
+    "pattern": "markdown_fence_wrapper"
+  },
+  {
+    "name": "Python literals",
+    "description": "",
+    "input": "{\"ok\": True, \"value\": None, \"enabled\": False}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "17-python-literals.json",
+    "pattern": "python_literals"
+  },
+  {
+    "name": "Duplicate comma array",
+    "description": "",
+    "input": "{\"items\":[1,,2]}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "18-duplicate-comma-array.json",
+    "pattern": "duplicate_comma"
+  },
+  {
+    "name": "Comments",
+    "description": "",
+    "input": "{\"name\":\"Alice\" // user name\n}\n",
+    "category": "single-error",
+    "source": "file",
+    "filename": "19-comments.json",
+    "pattern": "comment"
+  },
+  {
+    "name": "Missing closing delimiter",
+    "description": "",
+    "input": "{\"name\":\"Alice\",\"tags\":[\"ops\",\"infra\"}\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "20-missing-closing-delimiter.json",
+    "pattern": "missing_closing_delimiter"
+  },
+  {
+    "name": "Multiple top level objects",
+    "description": "",
+    "input": "{\"a\":1} {\"b\":2}\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "21-multiple-top-level-objects.json",
+    "pattern": "multiple_top_level_values"
+  },
+  {
+    "name": "Unterminated string",
+    "description": "",
+    "input": "{\"text\":\"hello}\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "22-unterminated-string.json",
+    "pattern": "unterminated_string"
+  },
+  {
+    "name": "Duplicate key",
+    "description": "",
+    "input": "{\"timeout\":30,\"timeout\":60,\"retries\":3}\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "23-duplicate-key.json",
+    "pattern": "duplicate_key"
+  },
+  {
+    "name": "Llm wrapper multi step",
+    "description": "",
+    "input": "Here is the repaired JSON:\n```json\n{\"ok\": True, \"items\": [1,2,],}\n```\nThanks!\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "24-llm-wrapper-multi-step.json",
+    "pattern": "wrapper_python_trailing_comma_combo"
+  },
+  {
+    "name": "Llm commentary comments and duplicate comma",
+    "description": "",
+    "input": "{\n  // generated by model\n  \"items\": [1,,2],\n  \"active\": False,\n}\n",
+    "category": "mixed",
+    "source": "file",
+    "filename": "25-llm-commentary-comments-and-duplicate-comma.json",
+    "pattern": "comment_python_duplicate_comma_combo"
+  }
+]

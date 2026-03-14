@@ -1,7 +1,7 @@
 ---
 Title: Add JSON support with focus on malformed LLM JSON recovery
 Ticket: SANITIZE-007
-Status: active
+Status: complete
 Topics:
     - json
     - linting
@@ -12,10 +12,10 @@ Owners: []
 RelatedFiles: []
 ExternalSources:
     - local:03-json-parse-errors-import.md
-Summary: Ticket for designing JSON support around malformed LLM-generated JSON, including parse-error experiments, heuristic probes, and implementation guidance.
-LastUpdated: 2026-03-13T19:32:38.618853469-04:00
-WhatFor: Track the research, design, and implementation planning for JSON linting and sanitizing support.
-WhenToUse: Use when reviewing the JSON-support roadmap, experiment outputs, and intern implementation guidance.
+Summary: Ticket for the completed first-release JSON support implementation, including malformed-case experiments, conservative recovery, CLI/API/UI delivery, and intern-oriented implementation guidance.
+LastUpdated: 2026-03-13T23:55:00-04:00
+WhatFor: Track the research, implementation, evidence, and validation for JSON linting and sanitizing support.
+WhenToUse: Use when reviewing what shipped in SANITIZE-007, how the JSON engine works, and where the conservative recovery boundary sits.
 ---
 
 
@@ -23,7 +23,7 @@ WhenToUse: Use when reviewing the JSON-support roadmap, experiment outputs, and 
 
 ## Overview
 
-This ticket investigates how `sanitize` should support malformed JSON commonly produced by LLMs. It combines a malformed-case taxonomy, tree-sitter experiments, heuristic probes, and an intern-oriented implementation guide that maps the current YAML architecture onto a proposed `pkg/json` engine.
+This ticket delivered first-release JSON support for `sanitize` with an emphasis on malformed LLM output. It combines a malformed-case taxonomy, tree-sitter experiments, heuristic probes, conservative fixers, CLI/API/UI integration, and an intern-oriented implementation guide that maps the YAML architecture onto the shipped `pkg/json` engine.
 
 ## Key Links
 
@@ -35,10 +35,14 @@ This ticket investigates how `sanitize` should support malformed JSON commonly p
 - Diary: [reference/03-diary.md](./reference/03-diary.md)
 - Tree-sitter matrix: [sources/01-json-parse-error-replication-matrix.md](./sources/01-json-parse-error-replication-matrix.md)
 - Heuristic probe: [sources/02-json-heuristic-probe.md](./sources/02-json-heuristic-probe.md)
+- Detection buckets: [sources/04-json-detection-buckets.md](./sources/04-json-detection-buckets.md)
+- Repair matrix: [sources/05-json-repair-matrix.md](./sources/05-json-repair-matrix.md)
+- Rule matrix: [sources/06-json-rule-matrix.json](./sources/06-json-rule-matrix.json)
+- Overlap study: [sources/07-json-overlap-study.md](./sources/07-json-overlap-study.md)
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

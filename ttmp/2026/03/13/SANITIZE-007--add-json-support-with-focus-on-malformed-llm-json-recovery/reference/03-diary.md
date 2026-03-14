@@ -1,7 +1,7 @@
 ---
 Title: Diary
 Ticket: SANITIZE-007
-Status: active
+Status: complete
 Topics:
     - json
     - linting
@@ -24,7 +24,7 @@ RelatedFiles:
       Note: Existing browser-side analysis loop and rendering flow referenced in the guide
 ExternalSources: []
 Summary: Step-by-step diary for SANITIZE-007 planning, package implementation, and corpus work.
-LastUpdated: 2026-03-13T20:30:00-04:00
+LastUpdated: 2026-03-13T23:58:00-04:00
 WhatFor: Record the implementation-planning steps, code commits, failures, and review notes for JSON support research and implementation.
 WhenToUse: Use when reviewing what changed in SANITIZE-007, why the task list and guide were updated, and how to validate the implemented JSON slices.
 ---
@@ -654,3 +654,146 @@ internal/cli/commands.go:134:3: undefined: buildRuleOptions
   - `sanitize rules --format json`
 - Deliberately unsupported for now:
   - `sanitize fix --format json`
+
+## Step 7: Add conservative JSON fixers and make `fix --format json` real
+
+The next slice moved JSON support from "analysis only" into actual recovery. I implemented the first safe fixer set in [pkg/json/fix.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/fix.go) and wired the iterative sanitize loop in [pkg/json/sanitize.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize.go) so `fix --format json` could stop being a placeholder.
+
+**Commit (code):** `9a6ead6` — `feat(json): add low-risk fixers and cli fix support`
+
+### What I did
+
+- Added fixers for:
+  - Markdown fence wrappers
+  - leading or trailing prose extraction
+  - Python literal normalization
+  - comment removal
+  - duplicate comma collapse
+  - trailing comma removal
+- Updated [internal/cli/commands.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go) so `sanitize fix --format json` now runs real JSON recovery.
+- Added JSON sanitize coverage in [pkg/json/sanitize_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize_test.go) and CLI coverage in [cmd/sanitize/main_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/cmd/sanitize/main_test.go).
+
+### Why
+
+- The JSON package had enough low-risk transforms to support an honest `fix` command.
+- Wrappers, literals, and commas are the most common recoverable LLM-JSON defects and have much better safety properties than guessing missing keys or missing commas.
+
+### What worked
+
+- The staged fix pipeline fit the YAML iterative sanitize model well.
+- The safest transforms could be applied independently and still compose into a multi-step recovery flow.
+
+### What warrants review
+
+- The boundary between safe token normalization and ambiguous structural repair is the key product decision. Review [pkg/json/fix.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/fix.go) with that lens.
+
+## Step 8: Generalize the server to a format-aware JSON API
+
+Once the CLI was real, the server became the next obvious integration point. This step changed the HTTP contract from a YAML-only body to a format-aware `{ format, input }` body and added JSON-aware example, sanitize, and parse responses.
+
+**Commit (code):** `aa66e7a` — `feat(server): add format-aware json api`
+
+### What I did
+
+- Replaced the old YAML-only request body in [internal/server/server.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server.go) with:
+
+```go
+type analyzeRequest struct {
+    Format string `json:"format"`
+    Input  string `json:"input"`
+}
+```
+
+- Updated `/api/examples` to merge YAML and JSON examples with format metadata.
+- Updated `/api/sanitize` to dispatch to YAML or JSON engines by format.
+- Updated `/api/parse` to dispatch to YAML or JSON engines by format and expose JSON `strict_parse_clean`.
+- Added server coverage in [internal/server/server_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server_test.go) for:
+  - JSON sanitize success
+  - JSON parse success
+  - mixed-format examples payloads
+
+### Why
+
+- The browser cannot cleanly support multiple formats if the server keeps a YAML-shaped request body.
+- The API contract needed to become honest before the UI could be changed safely.
+
+### What worked
+
+- The existing server structure was already clean enough that this was mostly transport normalization plus dispatch.
+- Keeping the response shapes close between YAML and JSON made the browser work much easier.
+
+## Step 9: Turn the embedded UI into a JSON recovery playground
+
+This slice changed the browser app from a YAML-specific interface into a shared YAML/JSON playground. I also fixed one real usability gap that only showed up in a manual browser run: the UI needed to know whether the original JSON was strictly valid even when the sanitized output became valid later, so I added `OriginalStrictParseClean` to the JSON result.
+
+**Commit (code):** `e1e7fd7` — `feat(ui): add json recovery playground`
+
+### What I did
+
+- Updated [index.html](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/index.html) with:
+  - a format selector
+  - format-neutral app branding
+  - a strict-parse badge
+  - format-aware panel labels
+- Rewrote [app.js](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/js/app.js) to:
+  - filter examples by format
+  - post `{ format, input }`
+  - show JSON strict-invalid versus strict-clean state
+  - render parse, strict-parser, and heuristic issue sources clearly
+- Updated [style.css](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/css/style.css) for the new toolbar and badges.
+- Added `OriginalStrictParseClean` to [pkg/json/types.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/types.go) and populated it in [pkg/json/sanitize.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize.go).
+- Added static UI contract coverage in [internal/server/server_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/server_test.go).
+- Manually validated the real browser flow with Playwright against `sanitize serve --port 8099`.
+
+### Why
+
+- JSON support is not complete if the package and CLI support it but the bundled web surface still says "Input YAML" everywhere.
+- Original strict-validity is important user feedback in JSON mode, especially for wrapper-recovery cases.
+
+### What I learned
+
+- The browser architecture did not need a rewrite. The real seam was the request body and result-state model.
+- Manual browser validation found a real missing field that normal Go tests would not have surfaced as clearly.
+
+## Step 10: Expand the corpus, add reporting scripts, and close the public docs
+
+The final implementation slice made the ticket auditable. I added combined malformed examples, several ticket-local reporting scripts, public README updates, and more JSON integration tests so the shipped behavior and remaining boundary are visible from both code and docs.
+
+**Commit (code):** `f789c7b` — `feat(json): add recovery reports and corpus coverage`
+
+### What I did
+
+- Added combined corpus cases in:
+  - [24-llm-wrapper-multi-step.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/24-llm-wrapper-multi-step.json)
+  - [25-llm-commentary-comments-and-duplicate-comma.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/25-llm-commentary-comments-and-duplicate-comma.json)
+- Added a multi-step recovery test in [pkg/json/sanitize_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/sanitize_test.go).
+- Polished public CLI wording in [internal/cli/root.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/root.go) and [internal/cli/commands.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go).
+- Expanded [README.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/README.md) with real JSON examples and the browser-playground description.
+- Added ticket-local scripts:
+  - [json-example-metadata/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-example-metadata/main.go)
+  - [json-detection-buckets/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-detection-buckets/main.go)
+  - [json-repair-matrix/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-repair-matrix/main.go)
+  - [json-rule-matrix/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-rule-matrix/main.go)
+  - [json-overlap-study/main.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/scripts/json-overlap-study/main.go)
+- Generated and stored the new source reports under [sources](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/ttmp/2026/03/13/SANITIZE-007--add-json-support-with-focus-on-malformed-llm-json-recovery/sources).
+
+### Validation
+
+- `go test ./...`
+- `go test -race ./...`
+- `golangci-lint run -v ./...`
+- `go test ./...` inside the ticket `scripts/` module
+- `docmgr doctor --ticket SANITIZE-007 --stale-after 30`
+- `docmgr validate frontmatter --doc ...04-json-detection-buckets.md --suggest-fixes`
+- `docmgr validate frontmatter --doc ...05-json-repair-matrix.md --suggest-fixes`
+- `docmgr validate frontmatter --doc ...07-json-overlap-study.md --suggest-fixes`
+
+### Final state
+
+`SANITIZE-007` is now complete. The shipped boundary is:
+
+- JSON parse/lint/fix/rules in the CLI
+- format-aware HTTP API
+- YAML/JSON shared browser playground with JSON recovery mode
+- conservative auto-fix for low-ambiguity malformed LLM JSON
+- lint-only handling for ambiguous structural repairs
