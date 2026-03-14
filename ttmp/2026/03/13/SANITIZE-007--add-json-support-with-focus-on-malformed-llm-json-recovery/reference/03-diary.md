@@ -23,17 +23,17 @@ RelatedFiles:
     - Path: internal/server/static/js/app.js
       Note: Existing browser-side analysis loop and rendering flow referenced in the guide
 ExternalSources: []
-Summary: Step-by-step diary for SANITIZE-007 planning and documentation work.
+Summary: Step-by-step diary for SANITIZE-007 planning, package implementation, and corpus work.
 LastUpdated: 2026-03-13T20:30:00-04:00
-WhatFor: Record the implementation-planning steps, commit hashes, and review notes for JSON support research and design.
-WhenToUse: Use when reviewing what changed in SANITIZE-007, why the task list and guide were updated, and how to validate the ticket docs.
+WhatFor: Record the implementation-planning steps, code commits, failures, and review notes for JSON support research and implementation.
+WhenToUse: Use when reviewing what changed in SANITIZE-007, why the task list and guide were updated, and how to validate the implemented JSON slices.
 ---
 
 # Diary
 
 ## Goal
 
-Capture the implementation-planning steps for `SANITIZE-007`, including how the JSON support backlog was expanded and how the intern guide was revised to include the HTTP server and browser playground work.
+Capture the implementation-planning and implementation steps for `SANITIZE-007`, including how the JSON support backlog was expanded, how the intern guide was revised, and how the first `pkg/json` and corpus slices landed.
 
 ## Step 1: Expand the ticket into a real implementation backlog
 
@@ -201,3 +201,269 @@ editor/example picker
   - [index.html](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/index.html)
   - [app.js](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/js/app.js)
   - [style.css](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/server/static/css/style.css)
+
+## Step 3: Build the `pkg/json` parse and analysis foundation
+
+The first code slice turned the JSON research into a real package. I added `pkg/json` with tree-sitter parsing, strict `encoding/json` validation, duplicate-key collection, a line index, JSON-native result and issue types, and a rule catalog plus option validation. This established the package seam that later CLI and server work can target.
+
+I kept this slice intentionally narrow: no CLI wiring, no HTTP changes, and no browser changes. That made the review about whether the package shape and parser behavior were correct, rather than mixing transport and UI concerns into the first code landing.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go work on it task by task, commit at appropriate intervals, keep a detailed diary."
+
+**Assistant interpretation:** Start implementing the JSON-support ticket in focused slices, committing each one and recording the exact work in the ticket diary.
+
+**Inferred user intent:** Move from planning into real JSON-support code while preserving reviewability and a strong implementation record.
+
+**Commit (code):** `38669df` — `feat(json): add parse analysis foundation`
+
+### What I did
+
+- Added the new package files under [pkg/json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json).
+- Added tree-sitter JSON parsing and `ParseTree(...)` in [parse.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go).
+- Added shared document analysis in [analysis.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/analysis.go).
+- Added duplicate-key extraction in [duplicate_keys.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/duplicate_keys.go).
+- Added JSON rule metadata and option validation in [rules.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go) and [options.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/options.go).
+- Added tests in [parse_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse_test.go) and [rules_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules_test.go).
+- Added the `tree-sitter-json` dependency in `go.mod` and `go.sum`.
+- Fixed the pre-existing `nonamedreturns` lint error in [examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples.go) because it was blocking pre-commit and sits directly in the examples path this ticket uses.
+
+### Why
+
+- The rest of the JSON work needs a real package surface, not just scripts in the ticket.
+- Strict parsing and tree-sitter parsing need to coexist from the start so later lint and fix work can distinguish structural localization from validity.
+- Duplicate-key detection is one of the easier high-value JSON checks and fits naturally into the analysis object.
+
+### What worked
+
+- Tree-sitter JSON uses a simple `object` / `pair` structure, which made duplicate-key traversal straightforward.
+- The existing YAML package gave a good template for analysis, rules, and option validation without forcing code sharing too early.
+- The targeted tests were enough to shake out the package shape before touching any higher-level surface.
+
+### What didn't work
+
+- The first commit attempt failed in pre-commit because `golangci-lint` reported:
+
+```text
+examples/examples.go:58:1: named return "name" with type "string" found (nonamedreturns)
+pkg/json/parse.go:49:2: QF1002: could use tagged switch on err (staticcheck)
+pkg/json/line_index.go:19:21: func lineIndex.rowAtByte is unused (unused)
+pkg/json/line_index.go:38:21: func lineIndex.rowColAtByte is unused (unused)
+pkg/json/options.go:94:18: func (*config).ruleEnabled is unused (unused)
+```
+
+- I fixed the JSON issues by removing unused helpers until they were needed, tightening the switch in `strictParseBytes`, and fixing the `examples/examples.go` named return so pre-commit could pass cleanly.
+
+### What I learned
+
+- `encoding/json` accepts duplicate keys, so duplicate-key detection really does need to live outside strict parsing.
+- The simplest stable shape is still "YAML and JSON packages with similar public contracts", not a shared package abstraction.
+
+### What was tricky to build
+
+- The tricky part was deciding what to include before linting existed. I chose to include the rule catalog and option validation early because that avoids stringly-typed drift later, but I deferred sanitize/fix behavior until there is enough rule logic to justify it.
+
+### What warrants a second pair of eyes
+
+- The current JSON types include `StrictParseClean` in the result shape before sanitize/fix is implemented. That is defensible, but it should stay consistent with whatever server/browser response contract is chosen later.
+- The small lint cleanup in [examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples.go) was necessary and low-risk, but it is outside `pkg/json`, so it deserves a quick glance.
+
+### What should be done in the future
+
+- Add parser-derived lint issues next.
+- Add corpus fixtures that match the rule catalog.
+- Only then start CLI/server integration.
+
+### Code review instructions
+
+- Start with [analysis.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/analysis.go) and [parse.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go).
+- Then review [duplicate_keys.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/duplicate_keys.go), [rules.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go), and [options.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/options.go).
+- Validate with:
+  - `go test ./pkg/json`
+  - `go test ./cmd/sanitize ./internal/... ./pkg/yaml`
+
+### Technical details
+
+- Strict parser path: `encoding/json.Decoder` with `UseNumber()`
+- Structural parser path: `tree-sitter-json`
+- Core analysis fields:
+  - tree text
+  - tree-sitter error spans
+  - strict parse error
+  - duplicate keys
+  - line index
+
+## Step 4: Add a file-backed JSON malformed corpus
+
+The next slice added the file-backed JSON example corpus and a JSON loader in the shared `examples` package. This moves JSON examples from scattered notes into the same kind of stable regression asset the YAML side already has.
+
+I also added package-level built-in JSON examples in [pkg/json/examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/examples.go) so future CLI and server work can offer concise demos before the browser starts consuming the full file corpus.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue implementing the next focused JSON-support task and keep the work split into small, reviewable commits.
+
+**Inferred user intent:** Build implementation assets that later CLI, API, and UI work can rely on instead of leaving the ticket at the package-only stage.
+
+**Commit (code):** `0e8e0d3` — `feat(examples): add json malformed corpus`
+
+### What I did
+
+- Added the JSON corpus under [examples/json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json).
+- Added [examples/json/README.md](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/README.md).
+- Added valid controls and malformed single-pattern cases such as:
+  - [10-trailing-comma-object.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/10-trailing-comma-object.json)
+  - [16-markdown-fence-wrapper.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/16-markdown-fence-wrapper.json)
+  - [17-python-literals.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/17-python-literals.json)
+  - [21-multiple-top-level-objects.json](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/json/21-multiple-top-level-objects.json)
+- Extended [examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples.go) with `LoadJSONExamples()`.
+- Added tests in [examples_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples_test.go).
+
+### Why
+
+- The browser and server work need a stable corpus that can be filtered by format.
+- Rule development is much easier when each malformed pattern already has a canonical file fixture.
+- Built-in package examples and file-backed corpus examples serve different needs; both are useful.
+
+### What worked
+
+- The YAML examples loader pattern generalized cleanly to JSON.
+- The file naming convention already fit the malformed-case taxonomy from the ticket.
+
+### What didn't work
+
+- The first validation run failed because the YAML loader still called `parseFilename` with the old one-argument signature after I generalized it:
+
+```text
+examples/examples.go:44:35: not enough arguments in call to parseFilename
+	have (string)
+	want (string, string)
+```
+
+- I fixed that call site and re-ran the same narrow validation loop.
+
+### What I learned
+
+- The corpus work benefits from staying format-neutral in the shared `examples` package, but the example payload types should remain format-specific for now.
+- The JSON example set is already enough to support parse/lint work before any fixers exist.
+
+### What was tricky to build
+
+- The main sharp edge was balancing built-in examples versus file-backed examples. I kept both, but made the file-backed corpus the more comprehensive source of malformed cases.
+
+### What warrants a second pair of eyes
+
+- Whether some of the current `20-29` cases should be renamed as mixed versus ambiguous; right now they are useful but the taxonomy may evolve once fix safety is decided.
+
+### What should be done in the future
+
+- Add mixed multi-failure JSON cases.
+- Add UI-oriented metadata export once the server examples endpoint becomes format-aware.
+
+### Code review instructions
+
+- Start with [examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples.go) and [examples_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/examples/examples_test.go).
+- Then scan the new `examples/json/` files and [pkg/json/examples.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/examples.go).
+- Validate with:
+  - `go test ./examples ./pkg/json ./cmd/sanitize ./internal/... ./pkg/yaml`
+  - `golangci-lint run -v ./examples ./pkg/json ./cmd/sanitize ./internal/... ./pkg/yaml`
+
+### Technical details
+
+- Naming convention:
+  - `00-09` valid
+  - `10-19` single malformed pattern
+  - `20-29` mixed or more ambiguous
+
+## Step 5: Add parse-aware JSON lint diagnostics
+
+With the analysis object and corpus in place, the next package slice was linting. I added parser-derived lint issues, strict-parser diagnostics, and duplicate-key lint issues. This is the first point where the JSON package starts to look like something the future CLI can expose directly.
+
+This slice stays conservative. There are still no JSON fixers, and there are no heuristics yet for wrappers, comments, or Python literals. The goal was to expose the structural and strict-parser signals first so later heuristics can build on a stable baseline.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 3)
+
+**Assistant interpretation:** Continue the next implementation slice by turning the JSON analysis foundation into a linter surface.
+
+**Inferred user intent:** Keep moving toward usable JSON support in small increments instead of waiting for a giant all-at-once feature branch.
+
+**Commit (code):** `5ac5f6c` — `feat(json): add parse-aware lint diagnostics`
+
+### What I did
+
+- Added [lint.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go).
+- Added `Lint(...)` and `LintWithOptions(...)`.
+- Added parser-derived rules:
+  - `structural_parse_error`
+  - `missing_syntax_node`
+- Added `strict_parse_error` to the rule catalog and emitted it from the strict parser path.
+- Added duplicate-key lint issues from the analysis object.
+- Restored and used the line-index row/column helpers so strict-parser and duplicate-key issues carry spans.
+- Expanded [parse_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse_test.go) with lint coverage.
+
+### Why
+
+- The CLI and server will need lintable output before fixers exist.
+- Strict-parser diagnostics catch cases where tree-sitter and `encoding/json` differ in usefulness.
+- Duplicate keys are already present in the analysis object, so surfacing them as lint issues is a natural next step.
+
+### What worked
+
+- The analysis object was already rich enough to drive lint assembly without re-parsing.
+- The row/column spans for duplicate keys and strict-parser errors were good enough for package-level diagnostics.
+- The focused rule set kept the slice coherent and easy to validate.
+
+### What didn't work
+
+- The first lint validation failed on a `staticcheck` warning:
+
+```text
+pkg/json/parse.go:63:9: S1039: unnecessary use of fmt.Sprintf (staticcheck)
+```
+
+- After removing the unnecessary formatting call, the next run failed because the `fmt` import remained in [parse.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go):
+
+```text
+pkg/json/parse.go:6:2: "fmt" imported and not used
+```
+
+- I removed the stale import and re-ran the same test and lint commands until the slice was clean.
+
+### What I learned
+
+- Even before heuristics exist, JSON benefits from having both tree-sitter-derived and strict-parser-derived issue sources.
+- The future UI should probably show strict-parse diagnostics distinctly from tree-sitter `ERROR` nodes because they are conceptually different signals.
+
+### What was tricky to build
+
+- The hardest design choice in this slice was how much strict-parser location data to expose. I chose a practical middle ground: use offset-based spans when available, but keep the rule coarse rather than pretending we have perfect semantic locations for every strict-parser failure.
+
+### What warrants a second pair of eyes
+
+- Whether `strict_parse_error` should remain a separate rule or later be folded into a broader structural bucket for the UI.
+- Whether the current multi-value strict parse error offset is the right span for display.
+
+### What should be done in the future
+
+- Add heuristic JSON lint rules next.
+- Start wiring the CLI for `parse`, `lint`, and `rules` once the rule surface is broad enough.
+
+### Code review instructions
+
+- Start with [lint.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go).
+- Then compare it to [analysis.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/analysis.go), [parse.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go), and [rules.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go).
+- Validate with:
+  - `go test ./pkg/json ./examples ./cmd/sanitize ./internal/... ./pkg/yaml`
+  - `golangci-lint run -v ./pkg/json ./examples ./cmd/sanitize ./internal/... ./pkg/yaml`
+
+### Technical details
+
+- Issue sources now in use:
+  - `parse`
+  - `strict-parser`
+  - `heuristic` for duplicate keys

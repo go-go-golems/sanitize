@@ -34,8 +34,8 @@
 
 ## Phase 3: Shared architecture and `pkg/json` design
 
-- [ ] Design `pkg/json` to mirror the mature parts of `pkg/yaml` without copying YAML-specific assumptions.
-- [ ] Decide the internal analysis object for JSON.
+- [x] Design `pkg/json` to mirror the mature parts of `pkg/yaml` without copying YAML-specific assumptions.
+- [x] Decide the internal analysis object for JSON.
   - Strict parse status.
   - Tree-sitter parse tree text.
   - Tree-sitter error spans.
@@ -43,10 +43,10 @@
   - Duplicate-key findings.
   - Heuristic signals such as code fences, prose wrappers, and comment ranges.
 - [ ] Decide whether to extract a cross-format internal analysis layer or keep YAML and JSON analysis packages separate behind shared CLI/server contracts.
-- [ ] Define JSON-native issue and fix models.
+- [x] Define JSON-native issue and fix models.
   - Reuse span fields and source labels where possible.
   - Avoid YAML-specific field names in any shared surface.
-- [ ] Define the JSON rule registry.
+- [x] Define the JSON rule registry.
   - Canonical rule name.
   - Summary.
   - Whether it lints.
@@ -57,13 +57,13 @@
   - One conservative fix batch.
   - Re-analyze.
   - Stop on convergence or iteration cap.
-- [ ] Define how strict parser errors and tree-sitter errors are reconciled.
+- [x] Define how strict parser errors and tree-sitter errors are reconciled.
   - Strict parser should remain the final truth for "valid JSON".
   - Tree-sitter should supply localization and partial structure.
 
 ## Phase 4: JSON rule implementation plan
 
-- [ ] Create an ordered first-release rule list.
+- [x] Create an ordered first-release rule list.
   - `markdown_fence_wrapper`
   - `leading_or_trailing_prose`
   - `single_quotes`
@@ -123,7 +123,7 @@
 
 ## Phase 7: Examples, corpus, and experiments
 
-- [ ] Add `examples/json/` with one file per malformed pattern plus a README describing what each case is meant to exercise.
+- [x] Add `examples/json/` with one file per malformed pattern plus a README describing what each case is meant to exercise.
 - [ ] Add generated or curated "LLM-ish" JSON cases that combine multiple failure modes in one sample.
 - [ ] Add scripts under the ticket to compare:
   - strict parser failures,
@@ -136,7 +136,7 @@
 
 ## Phase 8: Validation and release readiness
 
-- [ ] Add package-level tests for each JSON rule.
+- [x] Add package-level tests for parse, duplicate-key, and strict-parser JSON rules.
 - [ ] Add sanitize iteration tests for multi-step recovery.
 - [ ] Add CLI tests for lint/fix/parse/rules in JSON mode.
 - [ ] Add HTTP server tests for format-aware sanitize/parse/examples endpoints.
