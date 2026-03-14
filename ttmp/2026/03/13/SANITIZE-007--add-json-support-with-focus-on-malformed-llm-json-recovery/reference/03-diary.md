@@ -467,3 +467,190 @@ pkg/json/parse.go:6:2: "fmt" imported and not used
   - `parse`
   - `strict-parser`
   - `heuristic` for duplicate keys
+
+## Step 6: Implement the first-wave heuristic JSON lint rules
+
+With the structural linting in place, I implemented the easy heuristic rules that the ticket research had already pointed to. This turned the JSON package from "parse-aware" into something materially useful for malformed LLM output, because it now recognizes wrappers, comments, Python literals, unquoted keys, and several other common recovery cases.
+
+I kept the rules lint-only. The point of this slice was to expose detection cleanly, not to rush into rewriting behavior. That preserves a clean separation between issue discovery and eventual fixer design.
+
+### Prompt Context
+
+**User prompt (verbatim):** "do them all"
+
+**Assistant interpretation:** Implement the full first easy heuristic set rather than stopping after one or two rules.
+
+**Inferred user intent:** Turn the JSON linter into a genuinely useful malformed-LLM JSON detector, not just a structural parser wrapper.
+
+**Commit (code):** `19f091e` — `feat(json): add heuristic lint rules`
+
+### What I did
+
+- Added [heuristics.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/heuristics.go).
+- Implemented heuristic lint rules for:
+  - `markdown_fence_wrapper`
+  - `leading_or_trailing_prose`
+  - `single_quotes`
+  - `unquoted_keys`
+  - `python_literals`
+  - `trailing_comma`
+  - `duplicate_comma`
+  - `comment`
+  - `missing_closing_delimiter`
+  - `multiple_top_level_values`
+  - `ellipsis_or_placeholder`
+- Expanded the rule catalog in [rules.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go).
+- Updated [lint.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go) so heuristic issues and strict-parser specialization are part of the same assembly flow.
+- Expanded [parse_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse_test.go) with rule-by-rule coverage.
+
+### Why
+
+- The research already showed these malformed patterns are common and relatively easy to detect.
+- The CLI and eventual UI need specific rule names, not just generic parse failure blobs.
+- Keeping these as lint-only first reduces the risk of premature and unsafe rewrites.
+
+### What worked
+
+- The mix of regex-based detection and a small scanner worked well.
+- The dedicated scanner was enough to make comment, duplicate comma, trailing comma, and missing-closing-delimiter detection string-aware.
+- The issue spans were good enough for package diagnostics and later CLI/UI display.
+
+### What didn't work
+
+- The first compile pass failed because of a typo in the heuristic scanner:
+
+```text
+pkg/json/heuristics.go:308:13: expected operand, found ':'
+```
+
+- After fixing that, one test failed because placeholder detection only caught `<value>` outside quoted strings:
+
+```text
+--- FAIL: TestLintWithOptionsReportsEllipsisOrPlaceholder (0.00s)
+    parse_test.go:220: expected two ellipsis_or_placeholder issues, got [...]
+```
+
+- I changed placeholder detection to use a regex pass so quoted placeholders are treated as lintable content.
+- The final lint pass also needed two `staticcheck` cleanups in [heuristics.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/heuristics.go) before the commit was clean.
+
+### What I learned
+
+- The easy heuristic set is broad enough that the package now covers most of the common malformed LLM JSON cases from the ticket research.
+- `multiple_top_level_values` is better surfaced as a specific strict-parser-derived rule than buried inside a generic `strict_parse_error`.
+
+### What was tricky to build
+
+- The main design tension was avoiding double-reporting. I kept the generic strict-parser rule but only surface it when there is not already a better, more specific rule for the multi-value case and when tree-sitter errors are not already explaining the same syntax breakage.
+
+### What warrants a second pair of eyes
+
+- Whether the current `leading_or_trailing_prose` heuristics are the right level of aggressiveness for prose-heavy prompts.
+- Whether `ellipsis_or_placeholder` should stay one combined rule or split into separate placeholder and ellipsis rules later.
+
+### What should be done in the future
+
+- Add fixers for the low-risk heuristic rules.
+- Decide which higher-risk heuristics should stay lint-only permanently.
+
+### Code review instructions
+
+- Start with [heuristics.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/heuristics.go).
+- Then review [lint.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go) and [rules.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go).
+- Validate with:
+  - `go test ./pkg/json`
+  - `go test ./examples ./pkg/json ./cmd/sanitize ./internal/... ./pkg/yaml`
+  - `golangci-lint run -v ./examples ./pkg/json ./cmd/sanitize ./internal/... ./pkg/yaml`
+
+### Technical details
+
+- Detection styles now in use:
+  - regex-based matching for wrappers, keys, literals, and placeholders
+  - scanner-based matching for comments, commas, and unmatched delimiters
+
+## Step 7: Add JSON format support to the CLI parse/lint/rules surface
+
+Once the JSON package had meaningful lint output, the next obvious user-facing slice was CLI integration. I added `--format json` to `parse`, `lint`, and `rules`, and made `fix --format json` return a clear not-implemented error until JSON fixers actually exist.
+
+This keeps the CLI honest. Users can already inspect, lint, and enumerate JSON rules, but the command surface does not pretend JSON sanitization is ready when it is not.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue the next implementation slice and expose the JSON package through the CLI where it is ready.
+
+**Inferred user intent:** Make the current JSON work directly usable from the `sanitize` binary instead of keeping it hidden behind package APIs and ticket scripts.
+
+**Commit (code):** `eed81b9` — `feat(cli): add json parse and lint support`
+
+### What I did
+
+- Updated [commands.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go) to accept `--format yaml|json` on `fix`, `lint`, `parse`, and `rules`.
+- Wired `lint --format json` to [pkg/json/lint.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go).
+- Wired `parse --format json` to [pkg/json/parse.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go).
+- Wired `rules --format json` to the JSON rule catalog.
+- Added an explicit `json fix is not implemented yet` error for `fix --format json`.
+- Added CLI coverage in [main_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/cmd/sanitize/main_test.go) for:
+  - JSON parse
+  - JSON lint
+  - JSON rules
+  - JSON fix not implemented
+
+### Why
+
+- The package work is now mature enough to expose parse and lint behavior through the actual binary.
+- JSON fixers do not exist yet, so the CLI should fail explicitly instead of silently falling back or behaving ambiguously.
+- A format-aware CLI is a prerequisite for later server and browser work.
+
+### What worked
+
+- The existing Glazed command structure was easy to extend with a `format` flag.
+- The parse and rules surfaces needed only straightforward branching by format.
+- The existing `--json` output flag could remain untouched because `--format` is orthogonal.
+
+### What didn't work
+
+- The first compile pass failed because I had renamed the YAML rule-option helper but left one old call site in the `fix` path:
+
+```text
+internal/cli/commands.go:134:3: undefined: buildRuleOptions
+```
+
+- I fixed the remaining call site and re-ran the full targeted validation loop before committing.
+
+### What I learned
+
+- The CLI is ready for gradual format rollout. It does not need an all-or-nothing JSON cutover.
+- Explicit not-implemented errors are much better than hidden partial support.
+
+### What was tricky to build
+
+- The subtle part was keeping `--json` as an output-format flag while adding `--format json` as an input-format selector. Those names are easy to confuse, so the code needed clean branching and tests.
+
+### What warrants a second pair of eyes
+
+- Whether `fix --format json` should remain a hard error or eventually support a lint-only dry-run mode before fixers exist.
+- Whether the CLI help text should start advertising JSON support now or wait until `fix` exists too.
+
+### What should be done in the future
+
+- Add JSON fixers, then wire `fix --format json`.
+- Update README/help examples to show JSON usage.
+- Bring the server and browser API into the same format-aware model.
+
+### Code review instructions
+
+- Start with [commands.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go).
+- Then review the JSON CLI coverage in [main_test.go](/home/manuel/code/wesen/2026-03-05--yaml-sanitizing/cmd/sanitize/main_test.go).
+- Validate with:
+  - `go test ./cmd/sanitize ./internal/... ./pkg/json ./examples ./pkg/yaml`
+  - `golangci-lint run -v ./cmd/sanitize ./internal/... ./pkg/json ./examples ./pkg/yaml`
+
+### Technical details
+
+- New supported commands:
+  - `sanitize parse --format json`
+  - `sanitize lint --format json`
+  - `sanitize rules --format json`
+- Deliberately unsupported for now:
+  - `sanitize fix --format json`

@@ -91,3 +91,25 @@ Added parse-aware JSON lint diagnostics that surface tree-sitter errors, strict-
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse.go — Strict-parser multi-value error handling used by linting
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go — `strict_parse_error` added to the JSON rule catalog
 - /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse_test.go — Lint coverage for duplicate keys and strict parse failures
+
+
+## 2026-03-13
+
+Added the first-wave heuristic JSON lint rules for common malformed LLM JSON patterns (commit `19f091e`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/heuristics.go — Heuristic detection for wrappers, comments, commas, delimiters, and placeholders
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/lint.go — Lint assembly updated to include heuristic rules and specific multi-value diagnostics
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/rules.go — JSON rule catalog expanded with heuristic rules
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/pkg/json/parse_test.go — Heuristic rule coverage
+
+
+## 2026-03-13
+
+Extended the Glazed CLI so `parse`, `lint`, and `rules` can operate on JSON via `--format json`, while `fix --format json` now fails explicitly until fixers exist (commit `eed81b9`)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/internal/cli/commands.go — Format-aware CLI dispatch for YAML and JSON
+- /home/manuel/code/wesen/2026-03-05--yaml-sanitizing/cmd/sanitize/main_test.go — CLI coverage for JSON parse/lint/rules and JSON fix not implemented

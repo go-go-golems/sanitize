@@ -84,6 +84,18 @@
   - Higher-risk later: unquoted keys and missing closing delimiters.
 - [ ] Decide whether duplicate keys are lint-only or optionally rewritten with explicit naming like YAML.
 - [ ] Decide whether there should be a "recovery only" preset for LLM JSON versus a stricter default preset.
+- [x] Implement the first-wave heuristic lint rules for the easy malformed patterns.
+  - `markdown_fence_wrapper`
+  - `leading_or_trailing_prose`
+  - `single_quotes`
+  - `unquoted_keys`
+  - `python_literals`
+  - `trailing_comma`
+  - `duplicate_comma`
+  - `comment`
+  - `missing_closing_delimiter`
+  - `multiple_top_level_values`
+  - `ellipsis_or_placeholder`
 
 ## Phase 5: CLI integration
 
@@ -92,10 +104,12 @@
   - `sanitize fix --format json`
   - `sanitize parse --format json`
 - [ ] Decide whether format-specific subcommands are needed in addition to `--format`.
-- [ ] Add JSON rule enumeration to `sanitize rules`.
+- [x] Add JSON rule enumeration to `sanitize rules`.
 - [ ] Add JSON examples and sample commands to CLI help output.
-- [ ] Add JSON-oriented parse inspection output that remains readable when the tree contains many `ERROR` nodes.
+- [x] Add JSON-oriented parse inspection output that remains readable when the tree contains many `ERROR` nodes.
 - [ ] Add CLI tests for format selection, unknown rule validation, parse output, and JSON fix output.
+  - JSON parse, lint, and rules coverage is in place.
+  - JSON fix currently returns a deliberate not-implemented error until fixers exist.
 
 ## Phase 6: HTTP API and browser UI
 
@@ -136,7 +150,7 @@
 
 ## Phase 8: Validation and release readiness
 
-- [x] Add package-level tests for parse, duplicate-key, and strict-parser JSON rules.
+- [x] Add package-level tests for parse, duplicate-key, strict-parser, and first-wave heuristic JSON rules.
 - [ ] Add sanitize iteration tests for multi-step recovery.
 - [ ] Add CLI tests for lint/fix/parse/rules in JSON mode.
 - [ ] Add HTTP server tests for format-aware sanitize/parse/examples endpoints.
