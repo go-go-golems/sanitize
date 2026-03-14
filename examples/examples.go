@@ -8,11 +8,15 @@ import (
 	"strconv"
 	"strings"
 
+	jsonsanitize "github.com/go-go-golems/sanitize/pkg/json"
 	yamlsanitize "github.com/go-go-golems/sanitize/pkg/yaml"
 )
 
 //go:embed yaml/*.yaml
 var yamlFiles embed.FS
+
+//go:embed json/*.json
+var jsonFiles embed.FS
 
 // LoadFileExamples reads all embedded YAML files and returns them as Examples.
 // Category is derived from the filename prefix per the corpus convention:
@@ -37,7 +41,7 @@ func LoadFileExamples() []yamlsanitize.Example {
 			continue
 		}
 
-		name, category := parseFilename(e.Name())
+		name, category := parseFilename(e.Name(), ".yaml")
 		examples = append(examples, yamlsanitize.Example{
 			Name:     name,
 			YAML:     string(data),
@@ -53,10 +57,44 @@ func LoadFileExamples() []yamlsanitize.Example {
 	return examples
 }
 
+// LoadJSONExamples reads all embedded JSON files and returns them as Examples.
+func LoadJSONExamples() []jsonsanitize.Example {
+	entries, err := jsonFiles.ReadDir("json")
+	if err != nil {
+		return nil
+	}
+
+	var examples []jsonsanitize.Example
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+
+		data, err := jsonFiles.ReadFile(filepath.Join("json", e.Name()))
+		if err != nil {
+			continue
+		}
+
+		name, category := parseFilename(e.Name(), ".json")
+		examples = append(examples, jsonsanitize.Example{
+			Name:     name,
+			JSON:     string(data),
+			Category: category,
+			Source:   "file",
+			Filename: e.Name(),
+		})
+	}
+
+	sort.Slice(examples, func(i, j int) bool {
+		return examples[i].Filename < examples[j].Filename
+	})
+	return examples
+}
+
 // parseFilename converts "11-missing-space-after-colon.yaml" into
 // name="Missing space after colon", category="single-error".
-func parseFilename(filename string) (string, string) {
-	base := strings.TrimSuffix(filename, ".yaml")
+func parseFilename(filename, ext string) (string, string) {
+	base := strings.TrimSuffix(filename, ext)
 	name := ""
 	category := ""
 
