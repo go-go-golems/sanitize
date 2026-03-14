@@ -117,45 +117,76 @@ func (c *fixCommand) Run(_ context.Context, vals *values.Values) error {
 	if err != nil {
 		return newExitError(1, err)
 	}
-	if format == "json" {
-		return newExitError(1, fmt.Errorf("json fix is not implemented yet"))
-	}
 
 	input, err := readInput(settings.Input, c.streams.Stdin)
 	if err != nil {
 		return newExitError(1, fmt.Errorf("error reading input: %w", err))
 	}
 
-	opts := append(
-		[]yamlsanitize.Option{
-			yamlsanitize.WithTabWidth(settings.TabWidth),
-			yamlsanitize.WithMaxIterations(settings.MaxIterations),
-		},
-		buildYAMLRuleOptions(settings.Rules, settings.DisableRules)...,
-	)
+	switch format {
+	case "yaml":
+		opts := append(
+			[]yamlsanitize.Option{
+				yamlsanitize.WithTabWidth(settings.TabWidth),
+				yamlsanitize.WithMaxIterations(settings.MaxIterations),
+			},
+			buildYAMLRuleOptions(settings.Rules, settings.DisableRules)...,
+		)
 
-	result, err := yamlsanitize.SanitizeWithOptions(string(input), opts...)
-	if err != nil {
-		return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
-	}
+		result, err := yamlsanitize.SanitizeWithOptions(string(input), opts...)
+		if err != nil {
+			return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
+		}
 
-	if settings.JSON {
-		enc := json.NewEncoder(c.streams.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(result); err != nil {
-			return newExitError(1, fmt.Errorf("error encoding sanitize result: %w", err))
+		if settings.JSON {
+			enc := json.NewEncoder(c.streams.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(result); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding sanitize result: %w", err))
+			}
+		} else {
+			if _, err := io.WriteString(c.streams.Stdout, result.Sanitized); err != nil {
+				return newExitError(1, fmt.Errorf("error writing sanitized output: %w", err))
+			}
+			if err := writeYAMLFixSummary(c.streams.Stderr, result.Fixes); err != nil {
+				return newExitError(1, err)
+			}
 		}
-	} else {
-		if _, err := io.WriteString(c.streams.Stdout, result.Sanitized); err != nil {
-			return newExitError(1, fmt.Errorf("error writing sanitized output: %w", err))
-		}
-		if err := writeFixSummary(c.streams.Stderr, result.Fixes); err != nil {
-			return newExitError(1, err)
-		}
-	}
 
-	if !result.ParseClean || !result.LintClean {
-		return newExitError(1, nil)
+		if !result.ParseClean || !result.LintClean {
+			return newExitError(1, nil)
+		}
+	case "json":
+		opts := append(
+			[]jsonsanitize.Option{
+				jsonsanitize.WithMaxIterations(settings.MaxIterations),
+			},
+			buildJSONRuleOptions(settings.Rules, settings.DisableRules)...,
+		)
+
+		result, err := jsonsanitize.SanitizeWithOptions(string(input), opts...)
+		if err != nil {
+			return newExitError(1, fmt.Errorf("invalid rule selection: %w", err))
+		}
+
+		if settings.JSON {
+			enc := json.NewEncoder(c.streams.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(result); err != nil {
+				return newExitError(1, fmt.Errorf("error encoding sanitize result: %w", err))
+			}
+		} else {
+			if _, err := io.WriteString(c.streams.Stdout, result.Sanitized); err != nil {
+				return newExitError(1, fmt.Errorf("error writing sanitized output: %w", err))
+			}
+			if err := writeJSONFixSummary(c.streams.Stderr, result.Fixes); err != nil {
+				return newExitError(1, err)
+			}
+		}
+
+		if !result.ParseClean || !result.LintClean || !result.StrictParseClean {
+			return newExitError(1, nil)
+		}
 	}
 	return nil
 }
@@ -473,7 +504,23 @@ func readInput(path string, stdin io.Reader) ([]byte, error) {
 	return io.ReadAll(stdin)
 }
 
-func writeFixSummary(w io.Writer, fixes []yamlsanitize.Fix) error {
+func writeYAMLFixSummary(w io.Writer, fixes []yamlsanitize.Fix) error {
+	if len(fixes) == 0 {
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(w, "%d fix(es) applied\n", len(fixes)); err != nil {
+		return fmt.Errorf("error writing fix summary: %w", err)
+	}
+	for _, fix := range fixes {
+		if _, err := fmt.Fprintf(w, "  %s: %s\n", fix.Rule, fix.Description); err != nil {
+			return fmt.Errorf("error writing fix summary: %w", err)
+		}
+	}
+	return nil
+}
+
+func writeJSONFixSummary(w io.Writer, fixes []jsonsanitize.Fix) error {
 	if len(fixes) == 0 {
 		return nil
 	}

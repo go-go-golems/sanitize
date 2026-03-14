@@ -308,18 +308,44 @@ func TestRunRulesJSONFormatReturnsCatalog(t *testing.T) {
 	}
 }
 
-func TestRunFixJSONFormatReturnsNotImplemented(t *testing.T) {
+func TestRunFixJSONFormatReturnsZeroAfterFix(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	exitCode := run([]string{"fix", "--format", "json"}, strings.NewReader(`{"ok": True}`), stdout, stderr)
+	exitCode := run([]string{"fix", "--format", "json", "--json"}, strings.NewReader("```json\n{\"ok\": True,}\n```"), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d", exitCode)
+	}
+
+	var result jsonsanitize.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if result.Sanitized != "{\"ok\": true}\n" {
+		t.Fatalf("unexpected sanitized output: %q", result.Sanitized)
+	}
+	if !result.StrictParseClean || !result.ParseClean {
+		t.Fatalf("expected strict and parse clean result, got %+v", result)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunFixJSONFormatReturnsNonZeroWhenIssuesRemain(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"fix", "--format", "json", "--json"}, strings.NewReader(`{name:"Alice"}`), stdout, stderr)
 	if exitCode != 1 {
 		t.Fatalf("expected exit code 1, got %d", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "json fix is not implemented yet") {
-		t.Fatalf("expected not implemented error, got %q", stderr.String())
+
+	var result jsonsanitize.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	if result.StrictParseClean {
+		t.Fatalf("expected strict parse to remain unclean, got %+v", result)
 	}
 }
