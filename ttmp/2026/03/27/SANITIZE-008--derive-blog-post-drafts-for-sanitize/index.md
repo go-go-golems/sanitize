@@ -10,10 +10,10 @@ Intent: long-term
 Owners: []
 RelatedFiles: []
 ExternalSources: []
-Summary: Ticket workspace for deriving blog-post candidates and structured article drafts for the sanitize project, with one draft file per article idea and reMarkable delivery.
-LastUpdated: 2026-03-27T09:34:25.283085583-04:00
-WhatFor: Organize, draft, validate, and deliver article-structure documents for writing about sanitize in Manuel's own voice later.
-WhenToUse: Use when turning sanitize project research and code history into article-ready outlines, section plans, examples, and reference packs.
+Summary: Ticket workspace for deriving blog-post candidates, structured article drafts, and one consolidated flagship article plan for the sanitize project, with reMarkable delivery.
+LastUpdated: 2026-03-27T10:36:00-04:00
+WhatFor: Organize, draft, validate, and deliver article-structure documents plus a consolidated flagship article plan for writing about sanitize in Manuel's own voice later.
+WhenToUse: Use when turning sanitize project research and code history into article-ready outlines, section plans, examples, reference packs, and friend-reviewable long-form drafts.
 ---
 
 # Derive blog post drafts for sanitize
@@ -39,6 +39,8 @@ This ticket packages a writing-oriented follow-up to the `sanitize` project work
   - `reference/11-a-weekend-project-that-turned-into-a-small-research-lab.md`
   - `reference/12-what-not-to-auto-fix.md`
   - `reference/13-how-to-write-span-aware-diagnostics-for-text-repair-tools.md`
+- Consolidated flagship draft:
+  - `reference/14-consolidated-two-part-article-draft-for-sanitize.md`
 
 ## Status
 
@@ -60,6 +62,6 @@ See [changelog.md](./changelog.md) for recent changes and decisions.
 ## Structure
 
 - `design-doc/` contains the article-set framing doc.
-- `reference/` contains the diary plus one structured draft per article idea.
+- `reference/` contains the diary, one structured draft per article idea, and the consolidated two-part flagship article draft.
 - `scripts/` is currently unused for this ticket because the work is documentation-heavy rather than experimental code.
 - `various/` and `archive/` remain available if future writing notes or rejected article directions need to be stored.

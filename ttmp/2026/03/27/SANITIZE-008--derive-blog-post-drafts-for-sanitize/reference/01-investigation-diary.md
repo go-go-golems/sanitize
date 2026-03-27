@@ -149,16 +149,76 @@ The article files were then filled with recurring building blocks: thesis, secti
   - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/03/27/PROJ - Sanitize - YAML Sanitizing Deep Dive.md`
   - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/03/27/PROJ - Sanitize - JSON Recovery Experiments and Limits.md`
 
-<!-- Provide background context needed to use this reference -->
+## Step 3: Consolidate the packet into one friend-reviewable flagship article draft
 
-## Quick Reference
+After the article packet existed, the next request was not for more ideas but for synthesis. The user wanted one larger article that already felt substantial enough to circulate, while still stopping short of fully written prose. That changed the job from “derive article candidates” to “compose a flagship draft from the strongest strands.”
 
-<!-- Provide copy/paste-ready content, API contracts, or quick-look tables -->
+The document I added in this step merges two lines that had been separate in the packet: the deep YAML implementation story and the surrounding workflow story. That produced a stronger article than either side alone because the code and the workflow explain each other.
 
-## Usage Examples
+### Prompt Context
 
-<!-- Show how to use this reference in practice -->
+**User prompt (verbatim):** "now let's create a consolidate article that is in two big parts:
 
-## Related
+- the implementation of the yaml sanitize part itself, in deep technical detail: spans, heuristics, test corpus, early experiments with regexp, treesitter setup, etc...
 
-<!-- Link to related documents or resources -->
+the second part is then about the workflow:
+- early prototype
+- web playground to experiment and test
+- using docmgr and making tickets after initial import
+- iterating and fixing and using LLMs to assess stuff
+- etc...
+
+Gther all the work and research you did for the initial draft to create a great fleshed out version for this article, notyet fully written out, but something that can already be handed out to friends for some feedback. 
+
+Save and then upload to remarkable."
+
+**Assistant interpretation:** Build one substantial two-part article draft out of the existing SANITIZE-008 material, update the ticket to track it, and upload that new draft to reMarkable.
+
+**Inferred user intent:** Move from a set of candidate articles to one flagship piece that is already strong enough to circulate for structural feedback.
+
+**Commit (code):** N/A
+
+### What I did
+- Added `reference/14-consolidated-two-part-article-draft-for-sanitize.md`.
+- Folded material from the YAML implementation draft, the workflow/UI/corpus drafts, and the new Obsidian notes into one article structure.
+- Added a “feedback prompts for friends” section so the draft can be circulated immediately.
+- Prepared the new draft for standalone reMarkable upload rather than rebundling the entire ticket packet.
+
+### Why
+- The strongest current article is the one that combines internals and workflow.
+- A friend-reviewable draft needs more narrative shape than the individual article idea files.
+
+### What worked
+- The earlier SANITIZE-008 packet made synthesis much faster because the core sections, resources, and examples were already decomposed.
+- The two-part structure gives the article a clean backbone without forcing full prose yet.
+
+### What didn't work
+- The existing diary had placeholder scaffolding left at the end from the original doc template. I removed that dead structure while updating the diary so the ticket remains continuation-friendly.
+
+### What I learned
+- The workflow material is not just “Part II filler.” It explains why the YAML implementation got as good as it did.
+- The best article shape for this project is not “code only” or “retrospective only,” but a braid of both.
+
+### What was tricky to build
+- The main challenge was staying below “finished prose” while still making the document feel substantial enough to share. I handled that by writing stronger section-level narrative guidance, explicit article promises, and a feedback checklist instead of polished paragraphs.
+
+### What warrants a second pair of eyes
+- Whether the two-part article is the right final publication shape or whether it should eventually split into two companion essays.
+
+### What should be done in the future
+- If the draft gets positive feedback, the next step is not more outlining but a prose pass plus selective cutting for length.
+
+### Code review instructions
+- Read `reference/14-consolidated-two-part-article-draft-for-sanitize.md` top to bottom and check whether the Part I / Part II split feels coherent.
+- Confirm that each major section still points back to repo-local source material.
+
+### Technical details
+- New document:
+  - `ttmp/2026/03/27/SANITIZE-008--derive-blog-post-drafts-for-sanitize/reference/14-consolidated-two-part-article-draft-for-sanitize.md`
+- Source drafts folded in:
+  - `reference/02-from-regexes-to-a-real-sanitizer.md`
+  - `reference/05-tree-sitter-as-infrastructure-not-a-magic-wand.md`
+  - `reference/06-anatomy-of-the-yaml-pipeline.md`
+  - `reference/08-designing-a-corpus-for-malformed-structured-text.md`
+  - `reference/09-how-the-browser-playground-changed-the-project.md`
+  - `reference/11-a-weekend-project-that-turned-into-a-small-research-lab.md`
