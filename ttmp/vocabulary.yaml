@@ -21,6 +21,8 @@ topics:
       description: Tree-sitter parsing and syntax-tree analysis work
     - slug: cli
       description: Command-line interface and command-surface work
+    - slug: writing
+      description: Writing-oriented ticket and article drafting work
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

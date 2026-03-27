@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -246,7 +247,14 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) err
 	if err := dec.Decode(dst); err != nil {
 		return err
 	}
-	if dec.More() {
+
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); errors.Is(err, io.EOF) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if len(extra) > 0 {
 		return errors.New("request body must contain a single JSON object")
 	}
 	return nil

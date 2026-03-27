@@ -24,6 +24,25 @@ func TestSanitizeWithOptions_StripsFenceAndNormalizesLiteralAndComma(t *testing.
 	}
 }
 
+func TestSanitizeWithOptions_RewritesSingleQuotedStrings(t *testing.T) {
+	src := "{'name':'Alice','items':['x','y']}\n"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"name\":\"Alice\",\"items\":[\"x\",\"y\"]}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if !result.ParseClean || !result.StrictParseClean || !result.LintClean {
+		t.Fatalf("expected fully clean result, got %+v", result)
+	}
+	if len(result.Fixes) != 5 {
+		t.Fatalf("expected one fix per converted string, got %+v", result.Fixes)
+	}
+}
+
 func TestSanitizeWithOptions_StripsCommentsAndDuplicateComma(t *testing.T) {
 	src := "{\"items\":[1,,2], // hi\n\"ok\": true\n}\n"
 
@@ -91,5 +110,21 @@ func TestSanitizeWithOptions_DisabledRuleSkipsFix(t *testing.T) {
 
 	if result.Sanitized != src {
 		t.Fatalf("expected python literal to remain unchanged, got %q", result.Sanitized)
+	}
+}
+
+func TestSanitizeWithOptions_DisabledSingleQuotesRuleSkipsFix(t *testing.T) {
+	src := "{'ok':'yes'}\n"
+
+	result, err := SanitizeWithOptions(src, WithDisabledRules("single_quotes"))
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != src {
+		t.Fatalf("expected single-quoted strings to remain unchanged, got %q", result.Sanitized)
+	}
+	if result.StrictParseClean {
+		t.Fatalf("expected strict parse to remain unclean, got %+v", result)
 	}
 }

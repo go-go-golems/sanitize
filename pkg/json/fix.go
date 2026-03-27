@@ -1,8 +1,10 @@
 package jsonsanitize
 
 import (
+	stdjson "encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -24,6 +26,14 @@ func applyFixes(src string, doc documentAnalysis, cfg *config) (string, []Fix) {
 		if changed {
 			current = next
 			fixes = append(fixes, fix)
+		}
+	}
+
+	if cfg.ruleEnabled("single_quotes") {
+		next, roundFixes := fixSingleQuotedStrings(current)
+		if next != current {
+			current = next
+			fixes = append(fixes, roundFixes...)
 		}
 	}
 
@@ -185,6 +195,63 @@ func fixPythonLiterals(src string) (string, []Fix) {
 	return out.String(), fixes
 }
 
+func fixSingleQuotedStrings(src string) (string, []Fix) {
+	var out strings.Builder
+	out.Grow(len(src))
+
+	var fixes []Fix
+	var quote byte
+	escape := false
+
+	for i := 0; i < len(src); {
+		ch := src[i]
+
+		if quote == '"' {
+			out.WriteByte(ch)
+			if escape {
+				escape = false
+			} else if ch == '\\' {
+				escape = true
+			} else if ch == '"' {
+				quote = 0
+			}
+			i++
+			continue
+		}
+
+		if ch == '"' {
+			quote = '"'
+			out.WriteByte(ch)
+			i++
+			continue
+		}
+
+		if ch == '\'' && singleQuotedContextBefore(src, i) {
+			raw, decoded, end, ok := parseSingleQuotedString(src, i)
+			if ok && singleQuotedContextAfter(src, end) {
+				replacementBytes, err := stdjson.Marshal(decoded)
+				if err == nil {
+					replacement := string(replacementBytes)
+					out.WriteString(replacement)
+					fixes = append(fixes, Fix{
+						Rule:        "single_quotes",
+						Description: "Rewrote single-quoted JSON string using double quotes",
+						Before:      raw,
+						After:       replacement,
+					})
+					i = end
+					continue
+				}
+			}
+		}
+
+		out.WriteByte(ch)
+		i++
+	}
+
+	return out.String(), fixes
+}
+
 func matchPythonLiteral(src string) (string, string, bool) {
 	switch {
 	case strings.HasPrefix(src, "True"):
@@ -212,6 +279,113 @@ func literalBoundaryAfter(src string, idx int) bool {
 	}
 	r := rune(src[idx])
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+}
+
+func parseSingleQuotedString(src string, start int) (string, string, int, bool) {
+	if start < 0 || start >= len(src) || src[start] != '\'' {
+		return "", "", 0, false
+	}
+
+	var out strings.Builder
+	for i := start + 1; i < len(src); {
+		ch := src[i]
+		if ch == '\'' {
+			return src[start : i+1], out.String(), i + 1, true
+		}
+		if ch != '\\' {
+			out.WriteByte(ch)
+			i++
+			continue
+		}
+
+		if i+1 >= len(src) {
+			return "", "", 0, false
+		}
+
+		switch esc := src[i+1]; esc {
+		case '\'', '"', '\\', '/':
+			out.WriteByte(esc)
+			i += 2
+		case 'b':
+			out.WriteByte('\b')
+			i += 2
+		case 'f':
+			out.WriteByte('\f')
+			i += 2
+		case 'n':
+			out.WriteByte('\n')
+			i += 2
+		case 'r':
+			out.WriteByte('\r')
+			i += 2
+		case 't':
+			out.WriteByte('\t')
+			i += 2
+		case 'u':
+			if i+6 > len(src) {
+				return "", "", 0, false
+			}
+			value, err := strconv.ParseUint(src[i+2:i+6], 16, 64)
+			if err != nil {
+				return "", "", 0, false
+			}
+			out.WriteRune(rune(value))
+			i += 6
+		default:
+			out.WriteByte('\\')
+			out.WriteByte(esc)
+			i += 2
+		}
+	}
+
+	return "", "", 0, false
+}
+
+func singleQuotedContextBefore(src string, idx int) bool {
+	prev := previousNonSpaceByte(src, idx-1)
+	switch prev {
+	case 0, '{', '[', ':', ',':
+		return true
+	default:
+		return false
+	}
+}
+
+func singleQuotedContextAfter(src string, idx int) bool {
+	next := nextNonSpaceByte(src, idx)
+	switch next {
+	case 0, ':', ',', '}', ']':
+		return true
+	default:
+		return false
+	}
+}
+
+func previousNonSpaceByte(src string, idx int) byte {
+	for i := idx; i >= 0; i-- {
+		if !isJSONSpace(src[i]) {
+			return src[i]
+		}
+	}
+	return 0
+}
+
+func nextNonSpaceByte(src string, idx int) byte {
+	for i := idx; i < len(src); i++ {
+		if !isJSONSpace(src[i]) {
+			return src[i]
+		}
+	}
+	return 0
+}
+
+func isJSONSpace(ch byte) bool {
+	switch ch {
+	case ' ', '\n', '\r', '\t':
+		return true
+	default:
+		return false
+	}
 }
 
 func removeComments(src string, spans []span) (string, []Fix) {

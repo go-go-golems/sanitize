@@ -353,3 +353,24 @@ func TestRunFixJSONFormatReturnsNonZeroWhenIssuesRemain(t *testing.T) {
 		t.Fatalf("expected strict parse to remain unclean, got %+v", result)
 	}
 }
+
+func TestRunFixJSONFormatRepairsSingleQuotedStrings(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	exitCode := run([]string{"fix", "--format", "json", "--json"}, strings.NewReader(`{'name':'Alice','ok':'yes'}`), stdout, stderr)
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d stderr=%q", exitCode, stderr.String())
+	}
+
+	var result jsonsanitize.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got error: %v", err)
+	}
+	if result.Sanitized != `{"name":"Alice","ok":"yes"}` {
+		t.Fatalf("unexpected sanitized output: %q", result.Sanitized)
+	}
+	if !result.StrictParseClean || !result.ParseClean || !result.LintClean {
+		t.Fatalf("expected clean result, got %+v", result)
+	}
+}

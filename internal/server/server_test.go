@@ -49,6 +49,18 @@ func TestSanitizeHandlerRejectsOversizedBody(t *testing.T) {
 	}
 }
 
+func TestSanitizeHandlerRejectsTrailingJSONValue(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/sanitize", strings.NewReader(`{"format":"yaml","input":"name:Alice\n"} {"extra":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	sanitizeHandler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d body=%q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestParseHandlerMethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/parse", nil)
 	rec := httptest.NewRecorder()
@@ -133,6 +145,18 @@ func TestParseHandlerJSONSuccess(t *testing.T) {
 	}
 	if !payload.StrictParseClean {
 		t.Fatalf("expected strict parse clean response, got %+v", payload)
+	}
+}
+
+func TestParseHandlerRejectsTrailingGarbage(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/parse", strings.NewReader(`{"format":"json","input":"{\"name\":\"Alice\"}"} trailing`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	parseHandler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d body=%q", rec.Code, rec.Body.String())
 	}
 }
 
