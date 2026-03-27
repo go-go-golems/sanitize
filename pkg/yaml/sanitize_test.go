@@ -133,6 +133,26 @@ func TestLint_DuplicateKey(t *testing.T) {
 	}
 }
 
+func TestLint_DuplicateKeyDifferentParents(t *testing.T) {
+	src := "a:\n  timeout: 30\nb:\n  timeout: 60\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "duplicate_key" {
+			t.Fatalf("did not expect duplicate_key issue across different mappings: %+v", li)
+		}
+	}
+}
+
+func TestLint_DuplicateKeyDifferentSequenceItems(t *testing.T) {
+	src := "items:\n  - name: a\n    id: 1\n  - name: b\n    id: 2\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "duplicate_key" {
+			t.Fatalf("did not expect duplicate_key issue across different sequence items: %+v", li)
+		}
+	}
+}
+
 func TestLint_ExtraColonInValue(t *testing.T) {
 	src := "env: KEY: VALUE\n"
 	issues := Lint(src)
@@ -148,11 +168,95 @@ func TestLint_ExtraColonInValue(t *testing.T) {
 	}
 }
 
+func TestLint_ExtraColonInValue_NearParseErrorOnly(t *testing.T) {
+	src := "message: key: value\nowner: team: core-platform\n"
+	issues := Lint(src)
+	rows := map[int]bool{}
+	for _, li := range issues {
+		if li.Rule == "extra_colon_in_value" {
+			rows[li.Row] = true
+		}
+	}
+	if !rows[0] {
+		t.Fatal("expected extra_colon_in_value on row 0")
+	}
+	if !rows[1] {
+		t.Fatal("expected extra_colon_in_value on adjacent row 1")
+	}
+}
+
 func TestLint_Clean(t *testing.T) {
 	src := "name: Alice\nage: 30\n"
 	issues := Lint(src)
 	if len(issues) != 0 {
 		t.Errorf("expected no lint issues for clean YAML, got %d: %+v", len(issues), issues)
+	}
+}
+
+func TestLint_ParseErrorProducesStructuralIssue(t *testing.T) {
+	src := "foo: bar: baz\n"
+	issues := Lint(src)
+	found := false
+	for _, li := range issues {
+		if li.Rule == "structural_parse_error" {
+			found = true
+			if li.Source != "parse" {
+				t.Fatalf("expected parse source, got %+v", li)
+			}
+			if li.StartRow != 0 {
+				t.Fatalf("expected issue to start on row 0, got %+v", li)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected structural_parse_error lint issue")
+	}
+}
+
+func TestLint_HeuristicIssueCarriesSpan(t *testing.T) {
+	src := "name:Alice\n"
+	issues := Lint(src)
+	for _, li := range issues {
+		if li.Rule == "missing_space_after_colon" {
+			if li.Source != "heuristic" {
+				t.Fatalf("expected heuristic source, got %+v", li)
+			}
+			if li.StartRow != 0 || li.EndRow != 0 {
+				t.Fatalf("expected line-local span, got %+v", li)
+			}
+			if li.EndByte == 0 {
+				t.Fatalf("expected non-zero end byte, got %+v", li)
+			}
+			return
+		}
+	}
+	t.Fatal("expected missing_space_after_colon lint issue")
+}
+
+func TestLint_MixedIndentProducesDedicatedIssue(t *testing.T) {
+	src := "root:\n  child_a: 1\n   child_b: 2\n  child_c: 3\n"
+	issues := Lint(src)
+	foundMixed := false
+	foundStructural := false
+	for _, li := range issues {
+		if li.Rule == "mixed_indent" {
+			foundMixed = true
+			if li.Source != "heuristic" {
+				t.Fatalf("expected heuristic source, got %+v", li)
+			}
+			if li.Row != 2 {
+				t.Fatalf("expected offending row 2, got %+v", li)
+			}
+		}
+		if li.Rule == "structural_parse_error" {
+			foundStructural = true
+		}
+	}
+	if !foundMixed {
+		t.Fatal("expected mixed_indent lint issue")
+	}
+	if !foundStructural {
+		t.Fatal("expected structural_parse_error alongside mixed_indent")
 	}
 }
 
@@ -204,10 +308,9 @@ func TestFix_TrailingComma(t *testing.T) {
 func TestFix_DuplicateKey(t *testing.T) {
 	src := "config:\n  timeout: 30\n  timeout: 60\n"
 	result := Sanitize(src)
-	if strings.Count(result.Sanitized, "timeout:") < 1 {
-		t.Errorf("expected at least one timeout key")
+	if !strings.Contains(result.Sanitized, "timeout_2: 60") {
+		t.Errorf("expected duplicate key to be renamed, got:\n%s", result.Sanitized)
 	}
-	// One of them should be renamed
 	fixFound := false
 	for _, f := range result.Fixes {
 		if f.Rule == "duplicate_key" {
@@ -220,12 +323,50 @@ func TestFix_DuplicateKey(t *testing.T) {
 	}
 }
 
+func TestFix_DuplicateKeyDifferentParents(t *testing.T) {
+	src := "a:\n  timeout: 30\nb:\n  timeout: 60\n"
+	result := Sanitize(src)
+	if result.Sanitized != src {
+		t.Fatalf("expected no duplicate-key rewrite across different mappings, got:\n%s", result.Sanitized)
+	}
+}
+
+func TestFix_DuplicateKeyDifferentSequenceItems(t *testing.T) {
+	src := "items:\n  - name: a\n    id: 1\n  - name: b\n    id: 2\n"
+	result := Sanitize(src)
+	if result.Sanitized != src {
+		t.Fatalf("expected no duplicate-key rewrite across different sequence items, got:\n%s", result.Sanitized)
+	}
+}
+
 func TestFix_ExtraColonInValue(t *testing.T) {
 	src := "foobar: foba: sldkjf\n"
 	result := Sanitize(src)
 	// The value should be quoted
 	if !strings.Contains(result.Sanitized, `"foba: sldkjf"`) {
 		t.Errorf("expected quoted value, got:\n%s", result.Sanitized)
+	}
+}
+
+func TestApplyFixes_ExtraColonInValue_DoesNotAutoFixAdjacentRowInSinglePass(t *testing.T) {
+	src := "message: key: value\nowner: team: core-platform\n"
+	doc, err := analyzeDocument(src)
+	if err != nil {
+		t.Fatalf("analyzeDocument: %v", err)
+	}
+
+	fixed, fixes := applyFixes(src, doc, &config{
+		maxIterations: defaultConfig().maxIterations,
+		tabWidth:      defaultConfig().tabWidth,
+	})
+	if !strings.Contains(fixed, `message: "key: value"`) {
+		t.Fatalf("expected first line to be quoted, got:\n%s", fixed)
+	}
+	if strings.Contains(fixed, `owner: "team: core-platform"`) {
+		t.Fatalf("did not expect adjacent row to be auto-quoted in a single pass, got:\n%s", fixed)
+	}
+	if len(fixes) != 1 || fixes[0].Rule != "extra_colon_in_value" {
+		t.Fatalf("expected exactly one extra_colon_in_value fix, got %+v", fixes)
 	}
 }
 
@@ -359,6 +500,31 @@ func TestGCD(t *testing.T) {
 		got := gcd(tt.a, tt.b)
 		if got != tt.want {
 			t.Errorf("gcd(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func TestLineIndexAtByte(t *testing.T) {
+	src := "alpha\nbeta\ngamma"
+	index := newLineIndex(src)
+
+	tests := []struct {
+		offset uint
+		row    int
+		col    int
+	}{
+		{0, 0, 0},
+		{2, 0, 2},
+		{6, 1, 0},
+		{9, 1, 3},
+		{11, 2, 0},
+		{15, 2, 4},
+	}
+
+	for _, tt := range tests {
+		row, col := index.rowColAtByte(tt.offset)
+		if row != tt.row || col != tt.col {
+			t.Fatalf("rowColAtByte(%d) = (%d, %d), want (%d, %d)", tt.offset, row, col, tt.row, tt.col)
 		}
 	}
 }

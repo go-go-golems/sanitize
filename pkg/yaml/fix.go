@@ -8,15 +8,15 @@ import (
 
 // Precompiled regexes for fixers.
 var (
-	reMissingSpaceFix  = regexp.MustCompile(`^(\s*[^:]+):([^\s/])`)
-	reExtraColonInVal  = regexp.MustCompile(`^(\s*[^#\s][^:]*:\s+)([^'"{\[|>\n][^\n]*)$`)
-	reDuplicateKeyLine = regexp.MustCompile(`^(\s*)([^#\s\-\[{][^:]*):\s`)
+	reMissingSpaceFix = regexp.MustCompile(`^(\s*[^:]+):([^\s/])`)
+	reExtraColonInVal = regexp.MustCompile(`^(\s*[^#\s][^:]*:\s+)([^'"{\[|>\n][^\n]*)$`)
 )
 
 // applyFixes applies one round of heuristic fixes to the source.
-func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *config) (string, []Fix) {
+func applyFixes(src string, doc documentAnalysis, cfg *config) (string, []Fix) {
 	var fixes []Fix
 	lines := strings.Split(src, "\n")
+	lintIssues := lintIssuesFromAnalysis(src, doc, cfg)
 
 	// Build a set of lint rules per row for quick lookup.
 	lintByRow := map[int][]string{}
@@ -24,17 +24,19 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 		lintByRow[li.Row] = append(lintByRow[li.Row], li.Rule)
 	}
 
-	// Build error rows set.
-	errorRows := map[uint]bool{}
-	for _, e := range errors {
-		errorRows[e.StartRow] = true
+	// Build error rows set from full parse-error spans.
+	errorRows := map[int]bool{}
+	for _, e := range doc.ParseErrors {
+		for row := int(e.StartRow); row <= int(e.EndRow); row++ {
+			errorRows[row] = true
+		}
 	}
 
 	changed := false
 	for row := range lines {
 		line := lines[row]
 		rules := lintByRow[row]
-		hasTreeErr := errorRows[uint(row)]
+		hasTreeErr := errorRows[row]
 
 		newLine, f := fixLine(line, row, rules, hasTreeErr, cfg)
 		if newLine != line {
@@ -45,8 +47,8 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 	}
 
 	// Document-level fixes (duplicate keys).
-	if !changed {
-		newSrc, f := fixDuplicateKeys(strings.Join(lines, "\n"))
+	if !changed && cfg.ruleEnabled("duplicate_key") {
+		newSrc, f := fixDuplicateKeysOccurrences(strings.Join(lines, "\n"), doc.DuplicateKeys)
 		if newSrc != strings.Join(lines, "\n") {
 			return newSrc, f
 		}
@@ -54,7 +56,7 @@ func applyFixes(src string, errors []ErrorNode, lintIssues []LintIssue, cfg *con
 
 	// Document-level fix: mixed/inconsistent indentation depth.
 	// Only attempt when tree-sitter reported errors (structural breakage).
-	if !changed && len(errors) > 0 {
+	if !changed && cfg.ruleEnabled("mixed_indent") && len(doc.ParseErrors) > 0 {
 		newSrc, f := fixMixedIndentation(strings.Join(lines, "\n"))
 		if len(f) > 0 {
 			return newSrc, f
@@ -134,7 +136,7 @@ func fixLine(line string, row int, rules []string, hasTreeErr bool, cfg *config)
 	}
 
 	// Rule: extra colon in plain scalar value — quote the value.
-	if (hasRule("extra_colon_in_value") || hasTreeErr) && cfg.ruleEnabled("extra_colon_in_value") {
+	if hasTreeErr && cfg.ruleEnabled("extra_colon_in_value") {
 		newLine := fixExtraColonInValue(line)
 		if newLine != line {
 			fixes = append(fixes, Fix{
@@ -179,111 +181,75 @@ func fixExtraColonInValue(line string) string {
 	return m[1] + quoteValue(val)
 }
 
-// fixDuplicateKeys renames duplicate sibling keys by appending a numeric suffix.
-func fixDuplicateKeys(src string) (string, []Fix) {
-	var fixes []Fix
+func fixDuplicateKeysOccurrences(src string, duplicates []duplicateKeyOccurrence) (string, []Fix) {
+	if len(duplicates) == 0 {
+		return src, nil
+	}
+
 	lines := strings.Split(src, "\n")
-	seen := map[string]int{}
-	for i, line := range lines {
-		m := reDuplicateKeyLine.FindStringSubmatch(line)
-		if m == nil {
+	fixes := make([]Fix, 0, len(duplicates))
+
+	for i := len(duplicates) - 1; i >= 0; i-- {
+		duplicate := duplicates[i]
+		if duplicate.EndByte > uint(len(src)) || duplicate.StartByte >= duplicate.EndByte {
 			continue
 		}
-		indent := m[1]
-		key := strings.TrimSpace(m[2])
-		mapKey := indent + "|" + key
-		if seen[mapKey] > 0 {
-			newKey := fmt.Sprintf("%s_%d", key, seen[mapKey]+1)
-			newLine := strings.Replace(line, m[2], newKey, 1)
-			fixes = append(fixes, Fix{
+
+		newKeyText := duplicateKeyReplacement(duplicate.KeyText, duplicate.DuplicateIndex)
+		src = src[:duplicate.StartByte] + newKeyText + src[duplicate.EndByte:]
+
+		line := lineIndexAtByte(src, duplicate.StartByte)
+		if line >= 0 && line < len(lines) {
+			before := lines[line]
+			after := strings.Replace(before, duplicate.KeyText, newKeyText, 1)
+			lines[line] = after
+			fixes = append([]Fix{{
 				Rule:        "duplicate_key",
-				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", i+1, key, newKey),
-				Before:      line,
-				After:       newLine,
-			})
-			lines[i] = newLine
+				Description: fmt.Sprintf("Line %d: renamed duplicate key '%s' → '%s'", line+1, duplicate.Key, duplicateKeyIdentity(newKeyText)),
+				Before:      before,
+				After:       after,
+			}}, fixes...)
 		}
-		seen[mapKey]++
 	}
-	return strings.Join(lines, "\n"), fixes
+
+	return src, fixes
 }
 
 // fixMixedIndentation detects the dominant indent width and normalises lines
 // whose leading-space count is not a multiple of that width.
 func fixMixedIndentation(src string) (string, []Fix) {
 	lines := strings.Split(src, "\n")
-
-	// Count leading spaces per line (skip blank/comment lines).
-	indentCounts := map[int]int{}
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
-			continue
-		}
-		spaces := 0
-		for _, ch := range line {
-			if ch == ' ' {
-				spaces++
-			} else {
-				break
-			}
-		}
-		if spaces > 0 {
-			indentCounts[spaces]++
-		}
-	}
-
-	if len(indentCounts) == 0 {
+	unit, offenders := detectMixedIndentationRows(lines)
+	if len(offenders) == 0 {
 		return src, nil
-	}
-
-	// Find the GCD of all observed indent widths as the dominant unit.
-	gcdAll := 0
-	for w := range indentCounts {
-		gcdAll = gcd(gcdAll, w)
-	}
-	if gcdAll <= 0 {
-		gcdAll = 2
-	}
-	// Prefer 2 or 4 if they divide gcdAll evenly.
-	unit := gcdAll
-	if unit == 1 {
-		// Ambiguous — pick the most common indent width.
-		best, bestCnt := 2, 0
-		for w, cnt := range indentCounts {
-			if cnt > bestCnt {
-				best, bestCnt = w, cnt
-			}
-		}
-		unit = best
 	}
 
 	// Re-indent lines whose space count is not a multiple of unit.
 	var fixes []Fix
 	newLines := make([]string, len(lines))
 	copy(newLines, lines)
+	offenderSet := map[int]bool{}
+	for _, row := range offenders {
+		offenderSet[row] = true
+	}
 	for i, line := range lines {
-		spaces := 0
-		for _, ch := range line {
-			if ch == ' ' {
-				spaces++
-			} else {
-				break
-			}
+		if !offenderSet[i] {
+			continue
 		}
-		if spaces > 0 && spaces%unit != 0 {
-			normSpaces := (spaces / unit) * unit
-			if normSpaces == 0 {
-				normSpaces = unit
-			}
-			newLine := strings.Repeat(" ", normSpaces) + line[spaces:]
-			newLines[i] = newLine
-			fixes = append(fixes, Fix{
-				Rule:        "mixed_indent",
-				Description: fmt.Sprintf("Line %d: normalised indent %d→%d spaces (unit=%d)", i+1, spaces, normSpaces, unit),
-				Before:      line,
-				After:       newLine,
-			})
+
+		spaces := leadingSpaces(line)
+		normSpaces := (spaces / unit) * unit
+		if normSpaces == 0 {
+			normSpaces = unit
 		}
+		newLine := strings.Repeat(" ", normSpaces) + line[spaces:]
+		newLines[i] = newLine
+		fixes = append(fixes, Fix{
+			Rule:        "mixed_indent",
+			Description: fmt.Sprintf("Line %d: normalised indent %d→%d spaces (unit=%d)", i+1, spaces, normSpaces, unit),
+			Before:      line,
+			After:       newLine,
+		})
 	}
 	return strings.Join(newLines, "\n"), fixes
 }

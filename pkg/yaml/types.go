@@ -26,8 +26,15 @@ type ErrorNode struct {
 // tree-sitter ERROR — e.g. duplicate keys, missing space after colon).
 type LintIssue struct {
 	Rule        string `json:"rule"`
+	Source      string `json:"source"` // parse or heuristic
 	Description string `json:"description"`
-	Row         int    `json:"row"` // 0-indexed
+	StartByte   uint   `json:"start_byte"`
+	EndByte     uint   `json:"end_byte"`
+	StartRow    uint   `json:"start_row"`
+	StartCol    uint   `json:"start_col"`
+	EndRow      uint   `json:"end_row"`
+	EndCol      uint   `json:"end_col"`
+	Row         int    `json:"row"` // 0-indexed convenience alias for StartRow
 }
 
 // Fix describes one applied heuristic fix.
@@ -58,4 +65,7 @@ type Example struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	YAML        string `json:"yaml"`
+	Category    string `json:"category,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Filename    string `json:"filename,omitempty"`
 }

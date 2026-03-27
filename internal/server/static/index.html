@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sanitize Playground</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>Sanitize Playground</h1>
+    <span class="sub">tree-sitter · structured text recovery</span>
+    <span class="grammar-tag" id="grammar-tag">yaml + json</span>
+  </header>
+
+  <div class="toolbar">
+    <label for="format-select">Format</label>
+    <select id="format-select">
+      <option value="yaml">YAML</option>
+      <option value="json">JSON</option>
+    </select>
+    <label for="example-select">Example</label>
+    <select id="example-select">
+      <option value="">— type your own document —</option>
+    </select>
+    <span id="example-meta" class="meta-pill">custom input</span>
+    <span id="status-badge" class="status-badge idle">idle</span>
+    <span id="spinner" class="spinner hidden"></span>
+  </div>
+
+  <div class="panels">
+
+    <!-- Panel 1: Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="input-title">Input YAML</h2>
+        <span id="input-badge" class="badge">—</span>
+        <span id="input-format-badge" class="badge badge-format">yaml</span>
+      </div>
+      <div class="panel-body">
+        <textarea id="editor" spellcheck="false" autocorrect="off" autocapitalize="off"
+          placeholder="Paste or type broken YAML here…"></textarea>
+      </div>
+    </div>
+
+    <!-- Panel 2: Parse tree -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Parse Tree</h2>
+        <span id="tree-badge" class="badge">—</span>
+        <span id="strict-badge" class="badge badge-quiet">strict n/a</span>
+        <button class="btn" id="tree-toggle" style="margin-left:auto;">Show sanitized</button>
+      </div>
+      <div class="panel-body">
+        <div id="tree-output"><span class="empty">Tree will appear here.</span></div>
+      </div>
+      <div class="issues-section" id="issues-section" style="display:none;">
+        <h3 id="issues-heading">Issues</h3>
+        <div id="issue-items"></div>
+      </div>
+    </div>
+
+    <!-- Panel 3: Sanitized output -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="sanitized-title">Sanitized YAML</h2>
+        <span id="sanitized-badge" class="badge">—</span>
+        <button class="btn" id="copy-btn" style="margin-left:auto;" title="Copy sanitized output">Copy</button>
+      </div>
+      <div class="sanitized-panel-body">
+        <div id="sanitized-output"><span class="empty">Sanitized output will appear here.</span></div>
+        <div class="fixes-section" id="fixes-section" style="display:none;">
+          <h3>Applied fixes</h3>
+          <div id="fix-items"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

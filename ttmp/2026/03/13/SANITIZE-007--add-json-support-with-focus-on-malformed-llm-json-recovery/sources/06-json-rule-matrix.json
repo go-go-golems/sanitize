@@ -1,0 +1,438 @@
+[
+  {
+    "example": "00-valid-basic.json",
+    "pattern": "valid_basic",
+    "primary_rule": "valid_basic",
+    "severity": "info",
+    "fix_confidence": "n/a",
+    "auto_fix_policy": "none",
+    "parser_signal": "clean",
+    "observed_rules": [],
+    "observed_fixes": [],
+    "original_strict_clean": true,
+    "final_strict_clean": true
+  },
+  {
+    "example": "01-valid-nested-objects.json",
+    "pattern": "valid_nested_objects",
+    "primary_rule": "valid_nested_objects",
+    "severity": "info",
+    "fix_confidence": "n/a",
+    "auto_fix_policy": "none",
+    "parser_signal": "clean",
+    "observed_rules": [],
+    "observed_fixes": [],
+    "original_strict_clean": true,
+    "final_strict_clean": true
+  },
+  {
+    "example": "10-trailing-comma-object.json",
+    "pattern": "trailing_comma",
+    "primary_rule": "trailing_comma",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error",
+      "trailing_comma"
+    ],
+    "observed_fixes": [
+      "trailing_comma"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "11-single-quotes.json",
+    "pattern": "single_quotes",
+    "primary_rule": "single_quotes",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "single_quotes",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "12-unquoted-keys.json",
+    "pattern": "unquoted_keys",
+    "primary_rule": "unquoted_keys",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error",
+      "unquoted_keys"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "13-missing-comma.json",
+    "pattern": "missing_comma",
+    "primary_rule": "missing_comma",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "14-missing-colon.json",
+    "pattern": "missing_colon",
+    "primary_rule": "missing_colon",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "15-leading-prose-wrapper.json",
+    "pattern": "leading_or_trailing_prose",
+    "primary_rule": "leading_or_trailing_prose",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "leading_or_trailing_prose",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "leading_or_trailing_prose"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "16-markdown-fence-wrapper.json",
+    "pattern": "markdown_fence_wrapper",
+    "primary_rule": "markdown_fence_wrapper",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "markdown_fence_wrapper",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "markdown_fence_wrapper"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "17-python-literals.json",
+    "pattern": "python_literals",
+    "primary_rule": "python_literals",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "python_literals",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "python_literals"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "18-duplicate-comma-array.json",
+    "pattern": "duplicate_comma",
+    "primary_rule": "duplicate_comma",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "duplicate_comma",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "duplicate_comma"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "19-comments.json",
+    "pattern": "comment",
+    "primary_rule": "comment",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "strict-only",
+    "observed_rules": [
+      "comment",
+      "strict_parse_error"
+    ],
+    "observed_fixes": [
+      "comment"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "20-missing-closing-delimiter.json",
+    "pattern": "missing_closing_delimiter",
+    "primary_rule": "missing_closing_delimiter",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "missing_closing_delimiter",
+      "missing_syntax_node"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "21-multiple-top-level-objects.json",
+    "pattern": "multiple_top_level_values",
+    "primary_rule": "multiple_top_level_values",
+    "severity": "error",
+    "fix_confidence": "suggestion-only",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "strict-only",
+    "observed_rules": [
+      "multiple_top_level_values"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "22-unterminated-string.json",
+    "pattern": "unterminated_string",
+    "primary_rule": "unterminated_string",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "missing_closing_delimiter",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "23-duplicate-key.json",
+    "pattern": "duplicate_key",
+    "primary_rule": "duplicate_key",
+    "severity": "warn",
+    "fix_confidence": "lint-only",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "clean",
+    "observed_rules": [
+      "duplicate_key"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": true,
+    "final_strict_clean": true
+  },
+  {
+    "example": "24-llm-wrapper-multi-step.json",
+    "pattern": "wrapper_python_trailing_comma_combo",
+    "primary_rule": "wrapper_python_trailing_comma_combo",
+    "severity": "error",
+    "fix_confidence": "multi-step-safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "leading_or_trailing_prose",
+      "python_literals",
+      "structural_parse_error",
+      "trailing_comma"
+    ],
+    "observed_fixes": [
+      "leading_or_trailing_prose",
+      "python_literals",
+      "trailing_comma"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "25-llm-commentary-comments-and-duplicate-comma.json",
+    "pattern": "comment_python_duplicate_comma_combo",
+    "primary_rule": "comment_python_duplicate_comma_combo",
+    "severity": "error",
+    "fix_confidence": "multi-step-safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "comment",
+      "duplicate_comma",
+      "python_literals",
+      "structural_parse_error",
+      "trailing_comma"
+    ],
+    "observed_fixes": [
+      "comment",
+      "duplicate_comma",
+      "python_literals",
+      "trailing_comma"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "Leading prose",
+    "pattern": "leading_or_trailing_prose",
+    "primary_rule": "leading_or_trailing_prose",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "leading_or_trailing_prose",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "leading_or_trailing_prose"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "Markdown fence wrapper",
+    "pattern": "markdown_fence_wrapper",
+    "primary_rule": "markdown_fence_wrapper",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "markdown_fence_wrapper",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "markdown_fence_wrapper"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "Multiple top-level values",
+    "pattern": "multiple_top_level_values",
+    "primary_rule": "multiple_top_level_values",
+    "severity": "error",
+    "fix_confidence": "suggestion-only",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "strict-only",
+    "observed_rules": [
+      "multiple_top_level_values"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "Python literals",
+    "pattern": "python_literals",
+    "primary_rule": "python_literals",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "python_literals",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [
+      "python_literals"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "Single quotes",
+    "pattern": "single_quotes",
+    "primary_rule": "single_quotes",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "single_quotes",
+      "structural_parse_error"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "Trailing comma",
+    "pattern": "trailing_comma",
+    "primary_rule": "trailing_comma",
+    "severity": "warn",
+    "fix_confidence": "safe-auto-fix",
+    "auto_fix_policy": "auto-fix",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error",
+      "trailing_comma"
+    ],
+    "observed_fixes": [
+      "trailing_comma"
+    ],
+    "original_strict_clean": false,
+    "final_strict_clean": true
+  },
+  {
+    "example": "Unquoted keys",
+    "pattern": "unquoted_keys",
+    "primary_rule": "unquoted_keys",
+    "severity": "error",
+    "fix_confidence": "suggestion-or-future-fix",
+    "auto_fix_policy": "lint-only",
+    "parser_signal": "tree-sitter+strict",
+    "observed_rules": [
+      "structural_parse_error",
+      "unquoted_keys"
+    ],
+    "observed_fixes": [],
+    "original_strict_clean": false,
+    "final_strict_clean": false
+  },
+  {
+    "example": "Valid JSON",
+    "pattern": "valid",
+    "primary_rule": "valid",
+    "severity": "info",
+    "fix_confidence": "n/a",
+    "auto_fix_policy": "none",
+    "parser_signal": "clean",
+    "observed_rules": [],
+    "observed_fixes": [],
+    "original_strict_clean": true,
+    "final_strict_clean": true
+  }
+]

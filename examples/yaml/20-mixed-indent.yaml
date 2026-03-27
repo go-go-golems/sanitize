@@ -1,0 +1,4 @@
+root:
+  child_a: 1
+   child_b: 2
+  child_c: 3

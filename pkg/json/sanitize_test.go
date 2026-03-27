@@ -1,0 +1,130 @@
+package jsonsanitize
+
+import "testing"
+
+func TestSanitizeWithOptions_StripsFenceAndNormalizesLiteralAndComma(t *testing.T) {
+	src := "```json\n{\"ok\": True,}\n```"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"ok\": true}\n" {
+		t.Fatalf("unexpected sanitized output:\n%s", result.Sanitized)
+	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
+	}
+	if !result.ParseClean || !result.StrictParseClean {
+		t.Fatalf("expected parse clean result, got %+v", result)
+	}
+	if len(result.Fixes) == 0 {
+		t.Fatal("expected fixes to be recorded")
+	}
+}
+
+func TestSanitizeWithOptions_RewritesSingleQuotedStrings(t *testing.T) {
+	src := "{'name':'Alice','items':['x','y']}\n"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"name\":\"Alice\",\"items\":[\"x\",\"y\"]}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if !result.ParseClean || !result.StrictParseClean || !result.LintClean {
+		t.Fatalf("expected fully clean result, got %+v", result)
+	}
+	if len(result.Fixes) != 5 {
+		t.Fatalf("expected one fix per converted string, got %+v", result.Fixes)
+	}
+}
+
+func TestSanitizeWithOptions_StripsCommentsAndDuplicateComma(t *testing.T) {
+	src := "{\"items\":[1,,2], // hi\n\"ok\": true\n}\n"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"items\":[1,2], \n\"ok\": true\n}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if len(result.Fixes) < 2 {
+		t.Fatalf("expected multiple fixes, got %+v", result.Fixes)
+	}
+}
+
+func TestSanitizeWithOptions_MultiStepRecovery(t *testing.T) {
+	src := "Here is the repaired JSON:\n```json\n{\"ok\": True, \"items\": [1,2,],}\n```\nThanks!"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"ok\": true, \"items\": [1,2]}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
+	}
+	if !result.ParseClean || !result.StrictParseClean || !result.LintClean {
+		t.Fatalf("expected fully clean result, got %+v", result)
+	}
+	if len(result.Fixes) < 4 {
+		t.Fatalf("expected multiple staged fixes, got %+v", result.Fixes)
+	}
+}
+
+func TestSanitizeWithOptions_ExtractsJSONFromProse(t *testing.T) {
+	src := "Here is your JSON:\n{\"name\":\"Alice\"}\nThanks!"
+
+	result, err := SanitizeWithOptions(src)
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != "{\"name\":\"Alice\"}\n" {
+		t.Fatalf("unexpected sanitized output:\n%q", result.Sanitized)
+	}
+	if result.OriginalStrictParseClean {
+		t.Fatalf("expected original strict parse to fail, got %+v", result)
+	}
+	if !result.StrictParseClean {
+		t.Fatalf("expected strict parse clean result, got %+v", result)
+	}
+}
+
+func TestSanitizeWithOptions_DisabledRuleSkipsFix(t *testing.T) {
+	src := "{\"ok\": True}\n"
+
+	result, err := SanitizeWithOptions(src, WithDisabledRules("python_literals"))
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != src {
+		t.Fatalf("expected python literal to remain unchanged, got %q", result.Sanitized)
+	}
+}
+
+func TestSanitizeWithOptions_DisabledSingleQuotesRuleSkipsFix(t *testing.T) {
+	src := "{'ok':'yes'}\n"
+
+	result, err := SanitizeWithOptions(src, WithDisabledRules("single_quotes"))
+	if err != nil {
+		t.Fatalf("SanitizeWithOptions: %v", err)
+	}
+
+	if result.Sanitized != src {
+		t.Fatalf("expected single-quoted strings to remain unchanged, got %q", result.Sanitized)
+	}
+	if result.StrictParseClean {
+		t.Fatalf("expected strict parse to remain unclean, got %+v", result)
+	}
+}

@@ -1,0 +1,2 @@
+alert: severity: high
+summary: action: restart service
