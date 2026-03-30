@@ -23,6 +23,16 @@ topics:
       description: Command-line interface and command-surface work
     - slug: writing
       description: Writing-oriented ticket and article drafting work
+    - slug: argocd
+      description: Argo CD GitOps deployment controller
+    - slug: deployment
+      description: Application deployment to Kubernetes
+    - slug: ghcr
+      description: GitHub Container Registry
+    - slug: gitops
+      description: GitOps deployment patterns
+    - slug: kubernetes
+      description: Kubernetes container orchestration
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
