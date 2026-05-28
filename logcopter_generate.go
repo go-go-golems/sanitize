@@ -1,0 +1,3 @@
+package sanitize
+
+//go:generate go tool logcopter-gen -area-prefix go-go-golems.sanitize -strip-prefix github.com/go-go-golems/sanitize ./cmd/... ./internal/... ./pkg/...

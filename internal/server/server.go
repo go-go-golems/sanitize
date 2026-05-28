@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -50,7 +49,7 @@ func Run(port int) error {
 		return err
 	}
 
-	log.Print("Listening")
+	log.Info().Msg("listening")
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

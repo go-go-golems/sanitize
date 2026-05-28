@@ -47,3 +47,11 @@ SANITIZE_BINARY=$(shell which sanitize 2>/dev/null || echo ./dist/sanitize)
 install:
 	GOWORK=off go build -o ./dist/sanitize ./cmd/sanitize && \
 		cp ./dist/sanitize $(SANITIZE_BINARY)
+
+.PHONY: logcopter-generate
+logcopter-generate:
+	GOWORK=off go generate ./...
+
+.PHONY: logcopter-check
+logcopter-check:
+	GOWORK=off go tool logcopter-gen -area-prefix go-go-golems.sanitize -strip-prefix github.com/go-go-golems/sanitize -check ./cmd/... ./internal/... ./pkg/...
