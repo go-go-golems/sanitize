@@ -67,6 +67,9 @@ jobs:
           name: dist-darwin
           path: dist
 
+
+  # docsctl publishing is intentionally absent for this package: it does not expose a Glazed help export command yet.
+
   goreleaser-merge:
     runs-on: ubuntu-latest
     environment: release
